@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.env
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# OS
+.DS_Store
+
+# Docker volumes
+postgres_data/
+redis_data/
+.env
+.env.local

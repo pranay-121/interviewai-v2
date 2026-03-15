@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --gradient-brand: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+  --gradient-dark: linear-gradient(135deg, #080d1a 0%, #0f172a 50%, #172033 100%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #080d1a; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+::selection { background: rgba(99,102,241,0.3); }
+
+/* Glass card */
+.glass {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.glass-light {
+  background: rgba(30, 41, 59, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient border */
+.gradient-border {
+  position: relative;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: var(--gradient-brand);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+/* AI prose */
+.ai-prose h1, .ai-prose h2, .ai-prose h3 { font-weight: 600; margin-bottom: 0.5rem; margin-top: 1rem; color: #e2e8f0; }
+.ai-prose p { margin-bottom: 0.75rem; line-height: 1.7; color: #cbd5e1; }
+.ai-prose ul { list-style: disc; padding-left: 1.25rem; margin-bottom: 0.75rem; }
+.ai-prose li { margin-bottom: 0.25rem; color: #cbd5e1; }
+.ai-prose code { font-family: 'JetBrains Mono', monospace; background: rgba(99,102,241,0.15); padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.85em; color: #a5b4fc; }
+.ai-prose pre { background: #0a0f1e; border: 1px solid #1e293b; border-radius: 8px; padding: 1rem; overflow-x: auto; margin-bottom: 0.75rem; }
+.ai-prose pre code { background: none; padding: 0; color: #e2e8f0; }
+.ai-prose strong { color: #a5b4fc; font-weight: 600; }
+.ai-prose blockquote { border-left: 3px solid #4f46e5; padding-left: 1rem; color: #94a3b8; margin: 0.75rem 0; }
+
+/* Shimmer skeleton */
+.shimmer {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Typing dots */
+.typing-dot { animation: bounceDot 1.2s infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounceDot {
+  0%,60%,100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* Mesh background */
+.mesh-bg {
+  background-color: #080d1a;
+  background-image:
+    radial-gradient(at 20% 50%, rgba(99,102,241,0.08) 0px, transparent 50%),
+    radial-gradient(at 80% 20%, rgba(139,92,246,0.06) 0px, transparent 50%),
+    radial-gradient(at 50% 80%, rgba(79,70,229,0.05) 0px, transparent 50%);
+}
+
+/* Input styles */
+.input-field {
+  @apply w-full bg-dark-850 border border-white/10 rounded-xl px-4 py-3 text-sm text-white
+         focus:outline-none focus:border-brand-500/50 transition-colors placeholder:text-slate-600;
+}
+
+/* Button styles */
+.btn-primary {
+  @apply bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed
+         transition-all active:scale-95 font-semibold rounded-xl;
+}
+
+.btn-ghost {
+  @apply glass-light hover:bg-white/5 transition-all active:scale-95 border border-white/10 rounded-xl;
+}
+
+/* Score bar */
+.score-bar { transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }

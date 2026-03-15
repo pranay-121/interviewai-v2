@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     ENV: str = "development"
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001"]
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "https://interviewai-beta-one.vercel.app"]
 
     DATABASE_URL: str = "postgresql+asyncpg://interviewai:secret123@localhost:5432/interviewai"
     REDIS_URL: str = "redis://localhost:6379/0"

@@ -14,12 +14,19 @@ limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Run database migrations automatically on startup
+    import subprocess
+    subprocess.run(["alembic", "upgrade", "head"], check=False)
+    
+    # Create tables if they don't exist
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
     await redis_client.connect()
     yield
     await redis_client.disconnect()
     await engine.dispose()
+
 
 app = FastAPI(
     title="InterviewAI API", version="2.0.0",

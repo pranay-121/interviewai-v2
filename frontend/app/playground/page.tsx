@@ -53,8 +53,10 @@ export default function PlaygroundPage() {
         job_role: `${diff} ${topic} coding problem`,
         experience_level: diff === "Easy" ? "fresher" : diff === "Medium" ? "mid" : "senior",
       });
-      if (data.question) {
-        setProblem(data);
+      const q = data.question;
+      const questionText = typeof q === "string" ? q : q?.problem ? `**${q.title}**\n\n${q.problem}\n\n**Examples:**\n${(q.examples||[]).map((e:any)=>` Input: ${e.input} → Output: ${e.output}`).join("\n")}\n\n**Constraints:** ${JSON.stringify(q.constraints||{})}` : JSON.stringify(q);
+      if (questionText) {
+        setProblem({...data, question: questionText, context: data.context || q?.context || ""});
         setCode(DEFAULT_CODE[lang] || DEFAULT_CODE["Python"]);
       } else {
         setError("No question returned. Try again.");

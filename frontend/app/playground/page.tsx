@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Play, Loader2, RotateCcw, Lightbulb, AlertCircle } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import SafeMarkdown from "@/lib/safe-markdown";
 import api from "@/lib/api";
 
 const LANGS = ["Python","JavaScript","TypeScript","Java","C++","Go","Rust"];
@@ -163,7 +163,7 @@ export default function PlaygroundPage() {
                   <span className="text-xs bg-brand-500/10 text-brand-400 px-2 py-0.5 rounded-full font-medium">{topic}</span>
                 </div>
                 <div className="ai-prose text-sm">
-                  <ReactMarkdown>{problem.question}</ReactMarkdown>
+                  <SafeMarkdown content={problem.question} />
                 </div>
                 {problem.context && (
                   <p className="mt-3 text-xs text-brand-400 flex items-center gap-1 bg-brand-600/10 rounded-lg px-3 py-2">
@@ -199,7 +199,7 @@ export default function PlaygroundPage() {
                   </div>
                 </div>
                 <div className="ai-prose text-sm">
-                  <ReactMarkdown>{feedback.feedback || ""}</ReactMarkdown>
+                  <SafeMarkdown content={feedback.feedback || ""} />
                 </div>
                 {feedback.suggested_answer && (
                   <details>
@@ -207,7 +207,7 @@ export default function PlaygroundPage() {
                       View optimal solution ▸
                     </summary>
                     <div className="mt-2 ai-prose text-xs p-3 bg-dark-900 rounded-lg border border-white/5">
-                      <ReactMarkdown>{feedback.suggested_answer}</ReactMarkdown>
+                      <SafeMarkdown content={feedback.suggested_answer} />
                     </div>
                   </details>
                 )}

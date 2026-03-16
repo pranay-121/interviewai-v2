@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import ReactMarkdown from "react-markdown";
+import SafeMarkdown from "@/lib/safe-markdown";
 import { Send, ChevronLeft, Lightbulb, TrendingUp, RotateCcw, Check } from "lucide-react";
 import api from "@/lib/api";
 
@@ -135,7 +135,7 @@ function InterviewInner() {
           </div>
         </div>
         <div className="glass rounded-2xl p-5 border border-white/5 mb-4 ai-prose text-sm">
-          <ReactMarkdown>{summary.performance_summary||""}</ReactMarkdown>
+          <SafeMarkdown content={summary.performance_summary||""} />
         </div>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="glass rounded-xl p-4 border border-white/5">
@@ -194,7 +194,7 @@ function InterviewInner() {
             <div className={`max-w-xl rounded-2xl px-4 py-3 ${m.role==="user"?"bg-brand-600/20 border border-brand-500/20 ml-10":"glass border border-white/5"}`}>
               {m.qNum && <p className="text-xs text-brand-400 mb-1 font-medium">Question {m.qNum} of {total}</p>}
               <div className={`text-sm leading-relaxed ${m.role==="assistant"?"ai-prose":""}`}>
-                {m.role==="assistant" ? <ReactMarkdown>{m.content}</ReactMarkdown> : m.content}
+                {m.role==="assistant" ? <SafeMarkdown content={m.content} /> : m.content}
               </div>
               {m.score != null && (
                 <div className="mt-3 pt-3 border-t border-white/5 space-y-2">
@@ -221,7 +221,7 @@ function InterviewInner() {
                   {m.suggested && (
                     <details className="mt-1">
                       <summary className="text-xs text-brand-400 cursor-pointer flex items-center gap-1"><Lightbulb size={11}/>Model answer</summary>
-                      <div className="mt-2 text-xs text-slate-300 bg-dark-900 rounded-lg p-3 ai-prose"><ReactMarkdown>{m.suggested}</ReactMarkdown></div>
+                      <div className="mt-2 text-xs text-slate-300 bg-dark-900 rounded-lg p-3 ai-prose"><SafeMarkdown content={m.suggested} /></div>
                     </details>
                   )}
                 </div>

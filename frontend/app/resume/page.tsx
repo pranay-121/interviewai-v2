@@ -2,7 +2,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Upload, FileText, AlertTriangle, Check, TrendingUp, Loader2 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import SafeMarkdown from "@/lib/safe-markdown";
 import api from "@/lib/api";
 
 export default function ResumePage() {

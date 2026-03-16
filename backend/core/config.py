@@ -58,8 +58,6 @@
 # settings = Settings()
 
 
-from typing import List
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -68,31 +66,13 @@ class Settings(BaseSettings):
 
     ENV: str = "development"
 
-    # Fix: Accept ALLOWED_ORIGINS as either a string or list
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "https://interviewai-pranay-kumbhares-projects.vercel.app",
-    ]
-
-    @field_validator("ALLOWED_ORIGINS", mode="before")
-    @classmethod
-    def parse_origins(cls, v):
-        if isinstance(v, str):
-            # Handle comma-separated string
-            v = v.strip()
-            if v.startswith("["):
-                import json
-                try:
-                    return json.loads(v)
-                except Exception:
-                    pass
-            return [i.strip() for i in v.split(",") if i.strip()]
-        return v
+    # Plain string — parsed in main.py
+    ALLOWED_ORIGINS_STR: str = "http://localhost:3000,https://interviewai-pranay-kumbhares-projects.vercel.app"
 
     DATABASE_URL: str = "postgresql+asyncpg://interviewai:secret123@localhost:5432/interviewai"
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    SECRET_KEY: str = "change-me-in-production-use-256-bit-random-string-here"
+    SECRET_KEY: str = "change-me-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
@@ -114,6 +94,10 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = "minioadmin123"
     MINIO_BUCKET: str = "interviewai"
     MINIO_SECURE: bool = False
+
+    @property
+    def ALLOWED_ORIGINS(self):
+        return [i.strip() for i in self.ALLOWED_ORIGINS_STR.split(",") if i.strip()]
 
 
 settings = Settings()

@@ -15,7 +15,6 @@ class GroupRequest(BaseModel):
     topic: Optional[str] = None
     is_public: bool = True
 
-# ── Search users ───────────────────────────────────────────────
 @router.get("/users/search")
 async def search_users(
     email: str,
@@ -27,14 +26,10 @@ async def search_users(
         .where(User.email.ilike(f"%{email}%"), User.id != user_id)
         .limit(10)
     )
-    users = r.all()
-    return [
-        {"id": u.id, "full_name": u.full_name, "email": u.email,
-         "avatar_url": u.avatar_url, "target_role": u.target_role}
-        for u in users
-    ]
+    return [{"id": u.id, "full_name": u.full_name, "email": u.email,
+             "avatar_url": u.avatar_url, "target_role": u.target_role}
+            for u in r.all()]
 
-# ── Friends ────────────────────────────────────────────────────
 @router.get("/friends")
 async def list_friends(
     db: AsyncSession = Depends(get_db),
@@ -42,11 +37,9 @@ async def list_friends(
 ):
     r = await db.execute(
         select(Friendship).where(
-            and_(
-                Friendship.status == "accepted",
-                or_(Friendship.requester_id == user_id,
-                    Friendship.addressee_id == user_id)
-            )
+            and_(Friendship.status == "accepted",
+                 or_(Friendship.requester_id == user_id,
+                     Friendship.addressee_id == user_id))
         )
     )
     friendships = r.scalars().all()
@@ -82,13 +75,13 @@ async def pending_requests(
             select(User.id, User.full_name, User.email)
             .where(User.id == req.requester_id)
         )
-        user = u.one_or_none()
-        if user:
+        user_row = u.one_or_none()
+        if user_row:
             result.append({
                 "friendship_id": req.id,
-                "user_id": user.id,
-                "full_name": user.full_name,
-                "email": user.email
+                "user_id": user_row.id,
+                "full_name": user_row.full_name,
+                "email": user_row.email
             })
     return result
 
@@ -100,7 +93,6 @@ async def send_friend_request(
 ):
     if target_id == user_id:
         raise HTTPException(status_code=400, detail="Cannot add yourself")
-    # Check if already exists
     r = await db.execute(
         select(Friendship).where(
             or_(
@@ -135,9 +127,8 @@ async def accept_friend(
         raise HTTPException(status_code=404, detail="Request not found")
     friendship.status = "accepted"
     await db.commit()
-    return {"detail": "Friend request accepted"}
+    return {"detail": "Accepted"}
 
-# ── Groups ─────────────────────────────────────────────────────
 @router.get("/groups")
 async def list_groups(
     db: AsyncSession = Depends(get_db),

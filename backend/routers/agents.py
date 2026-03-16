@@ -44,30 +44,22 @@ async def analyze_resume(
     target_company: str = "",
     user_id: str = Depends(get_current_user_id)
 ):
-    # Validate file
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files accepted")
-    
     content = await file.read()
     if len(content) > 5 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large (max 5MB)")
-
-    # Extract text from PDF
     try:
         import io
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(content))
-        resume_text = "\n".join(
-            page.extract_text() or "" for page in reader.pages
-        )
+        resume_text = "\n".join(page.extract_text() or "" for page in reader.pages)
         if not resume_text.strip():
             raise HTTPException(status_code=400, detail="Could not extract text from PDF")
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"PDF read error: {str(e)}")
-
-    # Run AI analysis (skip MinIO storage)
     try:
         analysis = await orchestrator.analyze_resume(
             resume_text=resume_text,

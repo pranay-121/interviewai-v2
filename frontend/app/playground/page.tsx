@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Play, Loader2, RotateCcw, Lightbulb } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -20,6 +20,8 @@ export default function PlaygroundPage() {
   const [feedback, setFeedback] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
+
+  useEffect(() => { generateProblem(); }, []);
 
   const generateProblem = async () => {
     setLoading(true); setProblem(null); setFeedback(null); setCode("");

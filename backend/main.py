@@ -68,6 +68,7 @@
 # @app.exception_handler(404)
 # async def not_found(request: Request, exc):
 #     return JSONResponse(status_code=404, content={"detail": "Not found"})
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -101,7 +102,6 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# ── CORS fix ──────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -123,6 +123,20 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     return response
+
+# ── Debug endpoint ─────────────────────────────────────────────
+@app.get("/debug")
+async def debug():
+    import os
+    return {
+        "database_url_set": bool(os.getenv("DATABASE_URL")),
+        "redis_url_set": bool(os.getenv("REDIS_URL")),
+        "secret_key_set": bool(os.getenv("SECRET_KEY")),
+        "anthropic_key_set": bool(os.getenv("ANTHROPIC_API_KEY")),
+        "ai_provider": os.getenv("AI_PROVIDER"),
+        "allowed_origins": os.getenv("ALLOWED_ORIGINS_STR"),
+        "env": os.getenv("ENV"),
+    }
 
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(users.router, prefix="/users", tags=["Users"])

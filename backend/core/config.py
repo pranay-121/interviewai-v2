@@ -9,7 +9,11 @@ class Settings(BaseSettings):
     ENV: str = "development"
 
     # Fix: accept ALLOWED_ORIGINS as comma-separated string OR JSON
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
+    ALLOWED_ORIGINS: List[str] = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://interviewai-pranay-kumbhares-projects.vercel.app",
+    ]
 
     DATABASE_URL: str = "postgresql+asyncpg://interviewai:secret123@localhost:5432/interviewai"
     REDIS_URL: str = "redis://localhost:6379/0"

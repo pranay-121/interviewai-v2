@@ -85,12 +85,32 @@ limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    await redis_client.connect()
+    # Database
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("✅ Database connected")
+    except Exception as e:
+        print(f"❌ Database error: {e}")
+
+    # Redis
+    try:
+        await redis_client.connect()
+        print("✅ Redis connected")
+    except Exception as e:
+        print(f"❌ Redis error: {e}")
+
     yield
-    await redis_client.disconnect()
-    await engine.dispose()
+
+    # Shutdown
+    try:
+        await redis_client.disconnect()
+    except Exception:
+        pass
+    try:
+        await engine.dispose()
+    except Exception:
+        pass
 
 app = FastAPI(
     title="InterviewAI API", version="2.0.0",
@@ -137,6 +157,25 @@ async def debug():
         "allowed_origins": os.getenv("ALLOWED_ORIGINS_STR"),
         "env": os.getenv("ENV"),
     }
+
+# ── DB test endpoint ───────────────────────────────────────────
+@app.post("/test-register")
+async def test_register():
+    from core.database import AsyncSessionLocal
+    from models.models import User
+    import uuid
+    try:
+        async with AsyncSessionLocal() as db:
+            user = User(
+                id=str(uuid.uuid4()),
+                email=f"test_{uuid.uuid4().hex[:6]}@test.com",
+                full_name="Test"
+            )
+            db.add(user)
+            await db.commit()
+            return {"status": "db working ✅"}
+    except Exception as e:
+        return {"status": "db error ❌", "detail": str(e)}
 
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(users.router, prefix="/users", tags=["Users"])

@@ -1,8 +1,3 @@
-"""
-Base agent — supports Claude API (cloud) and Ollama (local).
-Set AI_PROVIDER=claude in .env for cloud deployment,
-or AI_PROVIDER=ollama for local usage.
-"""
 import json
 import re
 from core.config import settings
@@ -17,9 +12,22 @@ class BaseInterviewAgent:
         self._provider = settings.AI_PROVIDER
 
     async def _invoke(self, prompt: str) -> str:
-        if self._provider == "claude":
+        if self._provider == "groq":
+            return await self._invoke_groq(prompt)
+        elif self._provider == "claude":
             return await self._invoke_claude(prompt)
         return await self._invoke_ollama(prompt)
+
+    async def _invoke_groq(self, prompt: str) -> str:
+        from groq import AsyncGroq
+        client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+        response = await client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2048,
+            temperature=0.7,
+        )
+        return response.choices[0].message.content
 
     async def _invoke_claude(self, prompt: str) -> str:
         import anthropic
@@ -77,13 +85,14 @@ class BaseInterviewAgent:
     ) -> dict:
         ctx = self._build_context_header(job_role, company, experience_level)
         is_last = question_number >= self.QUESTIONS_PER_SESSION
-        next_q = "" if is_last else f'  "next_question": "...",\n'
+        next_q = "" if is_last else '  "next_question": "...",\n'
 
         prompt = (
             f"{self.system_prompt}\n\n{ctx}\n"
             f"Question asked: {question}\n"
             f"Candidate answer: {answer}\n\n"
-            f"Evaluate this answer. {'This is the FINAL question, do NOT generate next_question.' if is_last else f'Then generate question #{question_number + 1} of {self.QUESTIONS_PER_SESSION}.'}\n"
+            f"Evaluate this answer. "
+            f"{'This is the FINAL question, do NOT include next_question.' if is_last else f'Generate question #{question_number + 1} of {self.QUESTIONS_PER_SESSION}.'}\n"
             "Respond ONLY with valid JSON:\n"
             "{\n"
             '  "score": <number 0-10>,\n'

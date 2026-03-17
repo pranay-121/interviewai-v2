@@ -156,3 +156,87 @@ async def abandon_session(session_id: str, db: AsyncSession = Depends(get_db),
         session.status = "abandoned"
         await db.commit()
     return {"detail": "Abandoned"}
+
+@router.get("/active")
+async def get_active_session(
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get the most recent in-progress session if any."""
+    r = await db.execute(
+        select(InterviewSession)
+        .where(
+            InterviewSession.user_id == user_id,
+            InterviewSession.status == "in_progress",
+        )
+        .order_by(desc(InterviewSession.started_at))
+        .limit(1)
+    )
+    session = r.scalar_one_or_none()
+    if not session:
+        return {"session": None}
+
+    # Get last question asked
+    msgs_r = await db.execute(
+        select(InterviewMessage)
+        .where(InterviewMessage.session_id == session.id)
+        .order_by(desc(InterviewMessage.created_at))
+        .limit(1)
+    )
+    last_msg = msgs_r.scalar_one_or_none()
+
+    return {
+        "session": {
+            "id": session.id,
+            "agent_type": session.agent_type,
+            "job_role": session.job_role,
+            "company": session.company,
+            "experience_level": session.experience_level,
+            "answered_questions": session.answered_questions,
+            "total_questions": session.total_questions,
+            "last_question": last_msg.content if last_msg and last_msg.role == "assistant" else "",
+            "started_at": session.started_at.isoformat(),
+        }
+    }
+
+@router.get("/active")
+async def get_active_session(
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get the most recent in-progress session if any."""
+    r = await db.execute(
+        select(InterviewSession)
+        .where(
+            InterviewSession.user_id == user_id,
+            InterviewSession.status == "in_progress",
+        )
+        .order_by(desc(InterviewSession.started_at))
+        .limit(1)
+    )
+    session = r.scalar_one_or_none()
+    if not session:
+        return {"session": None}
+
+    # Get last question asked
+    msgs_r = await db.execute(
+        select(InterviewMessage)
+        .where(InterviewMessage.session_id == session.id)
+        .order_by(desc(InterviewMessage.created_at))
+        .limit(1)
+    )
+    last_msg = msgs_r.scalar_one_or_none()
+
+    return {
+        "session": {
+            "id": session.id,
+            "agent_type": session.agent_type,
+            "job_role": session.job_role,
+            "company": session.company,
+            "experience_level": session.experience_level,
+            "answered_questions": session.answered_questions,
+            "total_questions": session.total_questions,
+            "last_question": last_msg.content if last_msg and last_msg.role == "assistant" else "",
+            "started_at": session.started_at.isoformat(),
+        }
+    }

@@ -155,6 +155,23 @@ export default function LiveInterviewPage() {
     }
   }, []);
 
+  // Re-attach on EVERY render — fixes camera disappearing after 2s
+  useEffect(() => {
+    if (!streamRef.current || camStatus !== "active") return;
+    const attach = () => {
+      if (previewVideoRef.current && previewVideoRef.current.srcObject !== streamRef.current) {
+        previewVideoRef.current.srcObject = streamRef.current;
+      }
+      if (floatingVideoRef.current && floatingVideoRef.current.srcObject !== streamRef.current) {
+        floatingVideoRef.current.srcObject = streamRef.current;
+        floatingVideoRef.current.play().catch(() => {});
+      }
+    };
+    attach();
+    const interval = setInterval(attach, 500);
+    return () => clearInterval(interval);
+  });
+
   // Re-attach stream whenever phase changes (never recreate stream)
   useEffect(() => {
     if (camStatus !== "active") return;
@@ -175,7 +192,7 @@ export default function LiveInterviewPage() {
     streamRef.current?.getTracks().forEach(t => t.stop());
     try {
       if (mediaRecRef.current?.state !== "inactive") mediaRecRef.current?.stop();
-    } catch {}
+    } catch (err: any) {}
   }, []);
 
   // ── CAMERA — requested once, kept alive ─────────────────────────────
@@ -370,7 +387,7 @@ export default function LiveInterviewPage() {
     // Stop recording
     try {
       if (mediaRecRef.current?.state !== "inactive") mediaRecRef.current?.stop();
-    } catch {}
+    } catch (err: any) {}
 
     // Stop camera ONLY now
     streamRef.current?.getTracks().forEach(t => t.stop());
@@ -439,7 +456,7 @@ export default function LiveInterviewPage() {
         clearInterval(totalTimerRef.current);
         try {
           if (mediaRecRef.current?.state !== "inactive") mediaRecRef.current?.stop();
-        } catch {}
+        } catch (err: any) {}
         // Stop camera on natural completion
         streamRef.current?.getTracks().forEach(t => t.stop());
         streamRef.current = null;
@@ -449,6 +466,8 @@ export default function LiveInterviewPage() {
       } else {
         setCurrentQuestion(safeText(data.next_question));
         setQuestionNumber(data.question_number);
+        // Re-attach stream — never let camera die
+        setTimeout(() => attachToVideo(floatingVideoRef.current), 100);
         setQTimeLeft(perQSeconds);
         qStartRef.current = Date.now();
         submittingRef.current = false;
@@ -457,8 +476,11 @@ export default function LiveInterviewPage() {
           startTimers();
         }
       }
-    } catch {
-      alert("Submit failed. Try again.");
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || err?.message || "Submit failed";
+      alert(msg);
+      // Re-attach camera after error
+      setTimeout(() => attachToVideo(floatingVideoRef.current), 100);
       submittingRef.current = false;
     } finally {
       setLoading(false);
@@ -492,7 +514,7 @@ export default function LiveInterviewPage() {
       <div className="relative rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-dark-900"
         style={{ width: 176, aspectRatio: "4/3" }}>
         <video
-          ref={floatingVideoRef}
+          ref={(el) => { floatingVideoRef.current = el; if (el && streamRef.current) { el.srcObject = streamRef.current; el.play().catch(()=>{}); } }}
           autoPlay muted playsInline
           style={{ transform: "scaleX(-1)", width: "100%", height: "100%", objectFit: "cover" }}
         />

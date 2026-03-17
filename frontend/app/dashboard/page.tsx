@@ -2,14 +2,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Brain, Code2, Users, FileText, Award, TrendingUp, Clock, Plus, ChevronRight, LogOut, Settings } from "lucide-react";
+import { Brain, Code2, Users, FileText, Award, TrendingUp, Clock, Plus, ChevronRight, LogOut, Settings, Video } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import api from "@/lib/api";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 const NAV = [
   { href:"/dashboard", icon:<Brain size={16}/>, label:"Dashboard" },
-  { href:"/interview", icon:<Brain size={16}/>, label:"Start Interview" },
+  { href:"/live-interview", icon:<Video size={16}/>, label:"Live Interview" },
+    { href:"/interview", icon:<Brain size={16}/>, label:"Start Interview" },
   { href:"/resume", icon:<FileText size={16}/>, label:"Resume Review" },
   { href:"/playground", icon:<Code2 size={16}/>, label:"Code Playground" },
   { href:"/social", icon:<Users size={16}/>, label:"Social" },

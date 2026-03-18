@@ -1,809 +1,973 @@
 "use client";
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Send, ChevronLeft, Lightbulb, RotateCcw, Check, Camera, CameraOff, Mic, MicOff, Video, Square, Download, Trash2, Timer, Clock, Play, AlertCircle, History } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Mic, MicOff, Video, VideoOff, Send, Play, Pause,
+  StopCircle, RotateCcw, Download, Trash2, ChevronLeft,
+  AlertCircle, RefreshCw, Timer, TrendingUp, TrendingDown,
+  CheckCircle, Camera
+} from "lucide-react";
 import api from "@/lib/api";
 
-const AGENTS: Record<string, { icon: string; label: string; color: string }> = {
-  hr:            { icon: "🎯", label: "HR Interview",   color: "from-violet-600 to-purple-600" },
-  technical:     { icon: "⚙️", label: "Technical",      color: "from-blue-600 to-cyan-500" },
-  coding:        { icon: "💻", label: "Coding",          color: "from-emerald-600 to-teal-500" },
-  system_design: { icon: "🏗️", label: "System Design",  color: "from-orange-600 to-amber-500" },
-};
-
+// ── Constants ────────────────────────────────────────────────────────────
 const ROLES = [
-  "Software Engineer","Senior Software Engineer","Staff Engineer","Principal Engineer",
-  "Frontend Engineer","Backend Engineer","Full Stack Engineer","Mobile Engineer (iOS)",
-  "Mobile Engineer (Android)","React Native Developer","Flutter Developer",
-  "DevOps Engineer","Site Reliability Engineer","Platform Engineer","Infrastructure Engineer",
-  "Cloud Engineer","Solutions Architect","Cloud Architect","Enterprise Architect",
-  "Data Scientist","Senior Data Scientist","ML Engineer","Machine Learning Engineer",
-  "AI Engineer","Data Engineer","Data Analyst","Business Intelligence Analyst",
-  "NLP Engineer","Computer Vision Engineer","Research Scientist","MLOps Engineer",
-  "Product Manager","Senior Product Manager","Group Product Manager","Principal PM",
-  "Technical Product Manager","Product Analyst","UX Designer","UI Designer",
-  "UX Researcher","Product Designer","Design Lead",
-  "Engineering Manager","Director of Engineering","VP of Engineering","CTO",
-  "Technical Lead","Team Lead","Scrum Master","Agile Coach",
-  "Business Analyst","Management Consultant","Strategy Consultant","IT Consultant",
+  "Software Engineer","Senior Software Engineer","Staff Engineer",
+  "Frontend Engineer","Backend Engineer","Full Stack Engineer",
+  "Mobile Engineer (iOS)","Mobile Engineer (Android)","DevOps Engineer",
+  "Site Reliability Engineer","Cloud Architect","Solutions Architect",
+  "Data Scientist","ML Engineer","AI Engineer","Data Engineer",
+  "NLP Engineer","Computer Vision Engineer","MLOps Engineer",
+  "Product Manager","Technical Product Manager","UX Designer",
+  "Engineering Manager","Director of Engineering","Business Analyst",
   "SAP Consultant","SAP Basis","SAP ABAP Developer","SAP FICO Consultant",
-  "SAP MM Consultant","SAP SD Consultant","Oracle Consultant","Salesforce Developer",
-  "QA Engineer","SDET","Test Automation Engineer","Security Engineer",
-  "Penetration Tester","Cybersecurity Analyst","Information Security Analyst",
-  "Quantitative Analyst","Risk Analyst","Financial Analyst","Investment Banking Analyst",
-  "Software Engineer (FinTech)","Blockchain Developer","Smart Contract Developer",
-  "Embedded Systems Engineer","Firmware Engineer","Game Developer",
-  "AR/VR Developer","Robotics Engineer","Network Engineer",
+  "SAP MM Consultant","SAP SD Consultant","Oracle Consultant",
+  "Salesforce Developer","QA Engineer","SDET","Security Engineer",
+  "Blockchain Developer","Embedded Systems Engineer","Game Developer",
+  "Network Engineer","Quantitative Analyst","Financial Analyst",
 ];
 
 const COMPANIES = [
-  "","Google","Amazon","Microsoft","Meta","Apple","Netflix","OpenAI","Anthropic",
-  "Uber","Airbnb","Stripe","Salesforce","Oracle","IBM","Intel","Nvidia","Adobe",
-  "Twitter/X","LinkedIn","Snapchat","Pinterest","Spotify","Shopify","Slack","Zoom",
-  "Atlassian","MongoDB","Databricks","Snowflake","Palantir","Cloudflare","Twilio",
+  "Google","Amazon","Microsoft","Meta","Apple","Netflix","OpenAI","Anthropic",
+  "Uber","Airbnb","Stripe","Salesforce","Oracle","IBM","Adobe","Nvidia",
+  "Twitter/X","LinkedIn","Spotify","Shopify","Atlassian","MongoDB","Snowflake",
   "TCS","Infosys","Wipro","HCL Technologies","Tech Mahindra","Cognizant",
-  "Accenture","Capgemini","LTIMindtree","Mphasis","Hexaware",
-  "Flipkart","Meesho","Swiggy","Zomato","Ola","Paytm","PhonePe","Razorpay",
-  "CRED","Dream11","Zepto","Blinkit","Nykaa","Freshworks","Zoho","InMobi",
-  "ShareChat","Groww","Zerodha","Upstox","PolicyBazaar","Browserstack","Postman",
-  "Goldman Sachs","JPMorgan Chase","Morgan Stanley","Citibank","Deutsche Bank",
-  "Barclays","HSBC","BlackRock","Visa","Mastercard","PayPal",
-  "McKinsey","BCG","Bain","Deloitte","PwC","EY","KPMG",
-  "Tesla","SpaceX","Samsung","Qualcomm","SAP","Siemens",
-  "Other Startup","Other Company",
+  "Accenture","Capgemini","LTIMindtree","Flipkart","Swiggy","Zomato","Ola",
+  "Paytm","PhonePe","Razorpay","CRED","Dream11","Freshworks","Zoho",
+  "Groww","Zerodha","Browserstack","Postman","Goldman Sachs","JPMorgan",
+  "Morgan Stanley","Barclays","HSBC","McKinsey","BCG","Deloitte","PwC",
+  "EY","KPMG","Tesla","SpaceX","Samsung","SAP","Siemens",
+  "Early Stage Startup","Series A Startup","Other Company",
 ];
 
+const AGENT_TYPES = [
+  { v: "hr",            l: "HR / Behavioral", icon: "🎯" },
+  { v: "technical",     l: "Technical",        icon: "⚙️" },
+  { v: "coding",        l: "Coding",           icon: "💻" },
+  { v: "system_design", l: "System Design",    icon: "🏗️" },
+];
+
+const DURATIONS = [15, 20, 30, 45, 60];
+const TIME_PER_Q = [0.5, 1, 2, 3, 5];
 const LEVELS = [
-  { v: "fresher", l: "Fresher (0y)" },
+  { v: "fresher", l: "Fresher" },
   { v: "junior",  l: "Junior (1-3y)" },
   { v: "mid",     l: "Mid (3-5y)" },
   { v: "senior",  l: "Senior (5y+)" },
 ];
 
-const DURATIONS = [
-  { v: 15, l: "15 min" },
-  { v: 30, l: "30 min" },
-  { v: 45, l: "45 min" },
-  { v: 60, l: "60 min" },
-];
-
-const PER_Q = [
-  { v: 60,  l: "1 min" },
-  { v: 120, l: "2 min" },
-  { v: 180, l: "3 min" },
-  { v: 300, l: "5 min" },
-  { v: 0,   l: "No limit" },
-];
-
-interface Msg {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  score?: number;
-  feedback?: string;
-  suggested?: string;
-  strongPoints?: string[];
-  improvements?: string[];
-  qNum?: number;
-}
-
-const fmt = (sec: number) =>
-  `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
-
-const safeText = (val: any): string => {
-  if (!val) return "";
-  if (typeof val === "string") return val;
-  if (typeof val === "object") return JSON.stringify(val, null, 2);
-  return String(val);
+const safeText = (v: any): string => {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "object" && v.problem) {
+    const p: string[] = [];
+    if (v.title) p.push(v.title);
+    if (v.problem) p.push(v.problem);
+    if (v.examples?.length) {
+      p.push("Examples:");
+      v.examples.forEach((e: any) => p.push(`  Input: ${e.input} → Output: ${e.output}`));
+    }
+    if (v.constraints) p.push(`Constraints: ${JSON.stringify(v.constraints)}`);
+    return p.join("\n\n");
+  }
+  return JSON.stringify(v, null, 2);
 };
 
-function InterviewInner() {
-  const sp = useSearchParams();
+const fmt = (s: number) =>
+  `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+
+interface QA {
+  question: string;
+  answer: string;
+  score: number;
+  feedback: string;
+  timeUsed: number;
+  difficulty: "easy" | "medium" | "hard";
+}
+
+// Single state machine — no separate pages
+type InterviewState = "setup" | "in_progress" | "paused" | "completed";
+
+function InterviewApp() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
-  // Setup state
-  const [phase, setPhase] = useState<"setup" | "chat" | "done">("setup");
-  const [agentType, setAgentType] = useState("technical");
-  const [jobRole, setJobRole] = useState("Software Engineer");
-  const [company, setCompany] = useState("");
+  // ── Single state machine ────────────────────────────────────────────
+  const [state, setState] = useState<InterviewState>("setup");
+
+  // ── Config ─────────────────────────────────────────────────────────
+  const [role, setRole] = useState("Software Engineer");
+  const [company, setCompany] = useState("Google");
   const [level, setLevel] = useState("mid");
-  const [totalDur, setTotalDur] = useState(30);
-  const [perQSec, setPerQSec] = useState(120);
-  const [useCamera, setUseCamera] = useState(false);
-  const [useMic, setUseMic] = useState(false);
-  const [useRec, setUseRec] = useState(false);
+  const [agentType, setAgentType] = useState("technical");
+  const [duration, setDuration] = useState(30);
+  const [timePerQ, setTimePerQ] = useState(1);
+  const totalQs = Math.floor(duration / timePerQ);
+  const perQSec = Math.round(timePerQ * 60);
 
-  // Active session detection
-  const [activeSession, setActiveSession] = useState<any>(null);
-  const [checkingActive, setCheckingActive] = useState(false);
-
-  // Interview state
-  const [sessionId, setSessionId] = useState("");
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [curQ, setCurQ] = useState("");
-  const [qNum, setQNum] = useState(1);
-  const [total, setTotal] = useState(10);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [summary, setSummary] = useState<any>(null);
-
-  // Timers
-  const [totalSec, setTotalSec] = useState(0);
-  const [qLeft, setQLeft] = useState(0);
-  const [warn, setWarn] = useState(false);
-  const totalRef = useRef<any>(null);
-  const qRef = useRef<any>(null);
-
-  // Media
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // ── Camera ─────────────────────────────────────────────────────────
+  const [camReady, setCamReady] = useState(false);
+  const [camError, setCamError] = useState("");
+  const [camOn, setCamOn] = useState(true);
+  const [micOn, setMicOn] = useState(true);
   const streamRef = useRef<MediaStream | null>(null);
-  const recRef = useRef<MediaRecorder | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaRecRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const [recs, setRecs] = useState<{ url: string; name: string; size: string }[]>([]);
-  const [recording, setRecording] = useState(false);
-  const [camOn, setCamOn] = useState(false);
-  const [micOn, setMicOn] = useState(false);
-  const [mediaErr, setMediaErr] = useState("");
+  const [recs, setRecs] = useState<{ url: string; name: string }[]>([]);
 
-  const endRef = useRef<HTMLDivElement>(null);
+  // ── Interview ───────────────────────────────────────────────────────
+  const [sessionId, setSessionId] = useState("");
+  const [question, setQuestion] = useState("");
+  const [qNum, setQNum] = useState(1);
+  const [transcript, setTranscript] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [qLeft, setQLeft] = useState(perQSec);
+  const [totalLeft, setTotalLeft] = useState(duration * 60);
+  const [qaHistory, setQaHistory] = useState<QA[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [lastScore, setLastScore] = useState<number | null>(null);
+  const [lastFeedback, setLastFeedback] = useState("");
+  const [summary, setSummary] = useState<any>(null);
+  const [difficulty, setDifficulty] = useState<"easy"|"medium"|"hard">("medium");
+  const [autoWarn, setAutoWarn] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
 
+  // ── Refs ────────────────────────────────────────────────────────────
+  const recognitionRef = useRef<any>(null);
+  const qTimerRef = useRef<any>(null);
+  const totalTimerRef = useRef<any>(null);
+  const qStartRef = useRef(Date.now());
+  const submittingRef = useRef(false);
+  const pausedRef = useRef(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  // ── Persistent camera re-attach every 400ms ─────────────────────────
+  // This is the KEY fix — video element loses srcObject on React re-render
   useEffect(() => {
-    setMounted(true);
-    const type = sp.get("type");
-    const comp = sp.get("company");
-    if (type && AGENTS[type]) setAgentType(type);
-    if (comp) setCompany(comp);
-    // Check for active session
-    checkActiveSession();
-  }, []);
-
-  useEffect(() => {
-    if (endRef.current) endRef.current.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
-
-  useEffect(() => {
-    return () => {
-      clearInterval(totalRef.current);
-      clearInterval(qRef.current);
-      streamRef.current?.getTracks().forEach(t => t.stop());
+    if (!camReady || !streamRef.current) return;
+    const reattach = () => {
+      if (videoRef.current && videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        videoRef.current.play().catch(() => {});
+      }
     };
+    reattach();
+    const iv = setInterval(reattach, 400);
+    return () => clearInterval(iv);
+  }); // No deps — runs every render to prevent camera loss
+
+  // Cleanup on unmount only
+  useEffect(() => () => {
+    clearInterval(qTimerRef.current);
+    clearInterval(totalTimerRef.current);
+    killSpeech();
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    try { if (mediaRecRef.current?.state !== "inactive") mediaRecRef.current?.stop(); } catch {}
   }, []);
 
-  const checkActiveSession = async () => {
-    setCheckingActive(true);
-    try {
-      const { data } = await api.get("/interviews/active");
-      if (data.session) setActiveSession(data.session);
-    } catch {}
-    finally { setCheckingActive(false); }
-  };
-
-  const resumeSession = async () => {
-    if (!activeSession) return;
-    setLoading(true);
-    try {
-      // Load full session with all messages
-      const { data } = await api.get(`/interviews/${activeSession.id}`);
-      setSessionId(data.id);
-      setTotal(data.total_questions);
-      setQNum(data.answered_questions + 1);
-
-      // Rebuild messages from history
-      const msgs: Msg[] = data.messages.map((m: any) => ({
-        id: m.id,
-        role: m.role,
-        content: safeText(m.content),
-        score: m.score,
-        feedback: safeText(m.feedback),
-        suggested: safeText(m.suggested_answer),
-        qNum: m.question_number,
-      }));
-      setMessages(msgs);
-
-      // Set current question (last assistant message)
-      const lastAssistant = [...data.messages].reverse().find((m: any) => m.role === "assistant");
-      if (lastAssistant) setCurQ(safeText(lastAssistant.content));
-
-      setAgentType(data.agent_type);
-      setJobRole(data.job_role);
-      setCompany(data.company || "");
-      setLevel(data.experience_level);
-      setActiveSession(null);
-      setPhase("chat");
-      startTotalTimer();
-      startQTimer();
-    } catch (e: any) {
-      alert("Failed to resume session");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const startTotalTimer = useCallback(() => {
-    const max = totalDur * 60;
-    setTotalSec(max);
-    totalRef.current = setInterval(() => {
-      setTotalSec(p => {
-        if (p <= 1) { clearInterval(totalRef.current); return 0; }
-        return p - 1;
-      });
-    }, 1000);
-  }, [totalDur]);
-
-  const startQTimer = useCallback(() => {
-    if (perQSec === 0) return;
-    clearInterval(qRef.current);
-    setQLeft(perQSec);
-    setWarn(false);
-    qRef.current = setInterval(() => {
-      setQLeft(p => {
-        if (p <= 11) setWarn(true);
-        if (p <= 1) { clearInterval(qRef.current); return 0; }
-        return p - 1;
-      });
-    }, 1000);
-  }, [perQSec]);
-
-  const startMedia = async () => {
-    if (!useCamera && !useMic) return;
+  // ── Camera setup — called once on mount ────────────────────────────
+  const initCamera = useCallback(async () => {
+    setCamError("");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: useCamera,
-        audio: useMic,
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true,
       });
       streamRef.current = stream;
-      if (videoRef.current && useCamera) videoRef.current.srcObject = stream;
-      setCamOn(useCamera);
-      setMicOn(useMic);
-      if (useRec) {
-        const mr = new MediaRecorder(stream);
-        recRef.current = mr;
-        chunksRef.current = [];
-        mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-        mr.onstop = () => {
-          const blob = new Blob(chunksRef.current, { type: "video/webm" });
-          const url = URL.createObjectURL(blob);
-          const name = `Interview_${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.webm`;
-          setRecs(p => [...p, { url, name, size: `${(blob.size / 1024 / 1024).toFixed(1)} MB` }]);
-          chunksRef.current = [];
-        };
-        mr.start(1000);
-        setRecording(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
       }
-    } catch {
-      setMediaErr("Camera/mic access denied. Interview will continue without media.");
+      // Setup recorder
+      const mr = new MediaRecorder(stream);
+      mediaRecRef.current = mr;
+      chunksRef.current = [];
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+        setRecs(p => [...p, { url, name: `Interview_${Date.now()}.webm` }]);
+        chunksRef.current = [];
+      };
+      setCamReady(true);
+    } catch (err: any) {
+      setCamError(
+        err.name === "NotAllowedError"
+          ? "Camera access denied. Please allow camera in browser settings."
+          : `Camera error: ${err.message}`
+      );
     }
-  };
+  }, []);
 
-  const stopMedia = () => {
-    if (recRef.current && recording) { recRef.current.stop(); setRecording(false); }
+  // Init camera immediately when component mounts
+  useEffect(() => { if (mounted) initCamera(); }, [mounted]);
+
+  const retryCamera = async () => {
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
-    setCamOn(false);
-    setMicOn(false);
+    setCamReady(false);
+    await initCamera();
   };
 
-  const startInterview = async () => {
-    setLoading(true);
-    try {
-      await startMedia();
-      const { data } = await api.post("/interviews/start", {
-        agent_type: agentType,
-        job_role: jobRole,
-        company,
-        experience_level: level,
-      });
-      setSessionId(data.session_id);
-      setTotal(data.total_questions);
-      setCurQ(safeText(data.question));
-      setQNum(1);
-      const msgs: Msg[] = [];
-      if (data.greeting) msgs.push({ id: "g", role: "assistant", content: safeText(data.greeting) });
-      msgs.push({ id: "q1", role: "assistant", content: safeText(data.question), qNum: 1 });
-      setMessages(msgs);
-      setActiveSession(null);
-      setPhase("chat");
-      startTotalTimer();
-      startQTimer();
-    } catch (e: any) {
-      alert(e.response?.data?.detail || "Failed to start. Please try again.");
-    } finally {
-      setLoading(false);
+  const toggleCam = () => {
+    const t = streamRef.current?.getVideoTracks()[0];
+    if (t) { t.enabled = !t.enabled; setCamOn(t.enabled); }
+  };
+
+  const toggleMic = () => {
+    const t = streamRef.current?.getAudioTracks()[0];
+    if (t) {
+      t.enabled = !t.enabled; setMicOn(t.enabled);
+      if (!t.enabled) killSpeech(); else startSpeech();
     }
   };
 
-  const submit = async () => {
-    if (!input.trim() || loading) return;
-    clearInterval(qRef.current);
-    const ans = input.trim();
-    setInput("");
-    setMessages(p => [...p, { id: Date.now() + "u", role: "user", content: ans }]);
+  // ── Speech recognition ──────────────────────────────────────────────
+  const startSpeech = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    submittingRef.current = false;
+    const r = new SR();
+    recognitionRef.current = r;
+    r.continuous = true; r.interimResults = true; r.lang = "en-US";
+    let final = "";
+    r.onresult = (e: any) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += t + " "; else interim = t;
+      }
+      setTranscript(final + interim);
+    };
+    r.onend = () => { if (!submittingRef.current && !pausedRef.current) { try { r.start(); } catch {} } };
+    try { r.start(); setIsListening(true); } catch {}
+  };
+
+  const killSpeech = () => {
+    submittingRef.current = true;
+    try { recognitionRef.current?.stop(); } catch {}
+    recognitionRef.current = null;
+    setIsListening(false);
+  };
+
+  // ── Timers ──────────────────────────────────────────────────────────
+  const startTimers = useCallback(() => {
+    clearInterval(qTimerRef.current);
+    clearInterval(totalTimerRef.current);
+    qTimerRef.current = setInterval(() => {
+      if (pausedRef.current) return;
+      setQLeft(p => {
+        if (p <= 6) setAutoWarn(true);
+        if (p <= 1) { setAutoWarn(false); return 0; }
+        return p - 1;
+      });
+    }, 1000);
+    totalTimerRef.current = setInterval(() => {
+      if (pausedRef.current) return;
+      setTotalLeft(p => { if (p <= 1) { clearInterval(totalTimerRef.current); return 0; } return p - 1; });
+    }, 1000);
+  }, []);
+
+  // Auto submit when question timer hits 0
+  useEffect(() => {
+    if (state === "in_progress" && qLeft === 0 && !submittingRef.current) doSubmit();
+  }, [qLeft, state]);
+
+  // ── START INTERVIEW — transforms setup → in_progress in same screen ──
+  const startInterview = async () => {
+    if (!camReady) { alert("Please allow camera access first."); return; }
+    setLoading(true);
+    try {
+      const { data } = await api.post("/interviews/start", {
+        agent_type: agentType, job_role: role, company, experience_level: level,
+      });
+      setSessionId(data.session_id);
+      setQuestion(safeText(data.question));
+      setQNum(1);
+      setQLeft(perQSec);
+      setTotalLeft(duration * 60);
+      setQaHistory([]);
+      setLastScore(null);
+      setLastFeedback("");
+      setSummary(null);
+      setDifficulty("medium");
+      pausedRef.current = false;
+      submittingRef.current = false;
+
+      // Start recording
+      if (mediaRecRef.current?.state === "inactive") mediaRecRef.current.start(1000);
+
+      // State machine: setup → in_progress (SAME SCREEN)
+      setState("in_progress");
+      qStartRef.current = Date.now();
+      startTimers();
+      startSpeech();
+    } catch (e: any) {
+      alert(e.response?.data?.detail || "Failed to start. Please try again.");
+    } finally { setLoading(false); }
+  };
+
+  // ── STOP — pauses, keeps camera ON ─────────────────────────────────
+  const stopInterview = () => {
+    pausedRef.current = true;
+    killSpeech();
+    setAutoWarn(false);
+    setState("paused"); // Same screen, just paused state
+  };
+
+  // ── RESUME ──────────────────────────────────────────────────────────
+  const resumeInterview = () => {
+    pausedRef.current = false;
+    setState("in_progress");
+    submittingRef.current = false;
+    startSpeech();
+    startTimers();
+  };
+
+  // ── COMPLETE — ends interview, shows summary ────────────────────────
+  const completeInterview = async () => {
+    setConfirmEnd(false);
+    clearInterval(qTimerRef.current);
+    clearInterval(totalTimerRef.current);
+    killSpeech();
+    try { if (mediaRecRef.current?.state !== "inactive") mediaRecRef.current?.stop(); } catch {}
+    // Camera stays on — user may want to review
+    const attempted = qaHistory.length;
+    const avg = attempted > 0
+      ? qaHistory.reduce((s, q) => s + q.score, 0) / attempted : 0;
+    setSummary({
+      overall_score: avg.toFixed(1),
+      performance_summary: `You completed ${attempted} of ${totalQs} questions with an average score of ${avg.toFixed(1)}/10.`,
+      top_strengths: qaHistory.filter(q => q.score >= 7).slice(0,3).map(q => q.question.slice(0,60) + "…"),
+      areas_to_improve: qaHistory.filter(q => q.score < 5).slice(0,3).map(q => q.question.slice(0,60) + "…"),
+      hiring_likelihood: avg >= 7 ? "Strong Yes" : avg >= 5 ? "Maybe" : "Needs Improvement",
+      next_steps: "Review weak answers and practice with different companies.",
+    });
+    setState("completed");
+  };
+
+  // ── SUBMIT ANSWER ───────────────────────────────────────────────────
+  const doSubmit = async () => {
+    if (submittingRef.current || pausedRef.current) return;
+    submittingRef.current = true;
+    clearInterval(qTimerRef.current);
+    killSpeech();
+    setAutoWarn(false);
+    const answer = transcript.trim() || "(No answer — time expired)";
+    const timeUsed = Math.round((Date.now() - qStartRef.current) / 1000);
+    setTranscript("");
     setLoading(true);
     try {
       const { data } = await api.post(`/interviews/${sessionId}/answer`, {
-        answer: ans,
-        question: curQ,
+        answer, question,
       });
-      setMessages(p => [...p, {
-        id: Date.now() + "e",
-        role: "assistant",
-        content: safeText(data.feedback),
-        score: data.score,
-        feedback: safeText(data.feedback),
-        suggested: safeText(data.suggested_answer),
-        strongPoints: Array.isArray(data.strong_points) ? data.strong_points : [],
-        improvements: Array.isArray(data.improvement_areas) ? data.improvement_areas : [],
-      }]);
+      const score = Number(data.score || 0);
+      let newDiff: "easy"|"medium"|"hard" = difficulty;
+      if (score >= 8) newDiff = difficulty === "easy" ? "medium" : "hard";
+      else if (score <= 4) newDiff = difficulty === "hard" ? "medium" : "easy";
+      setDifficulty(newDiff);
+      setLastScore(score);
+      setLastFeedback(safeText(data.feedback).slice(0, 120));
+      setQaHistory(p => [...p, { question, answer, score, feedback: safeText(data.feedback), timeUsed, difficulty }]);
       if (data.session_complete) {
-        clearInterval(totalRef.current);
-        stopMedia();
+        clearInterval(totalTimerRef.current);
+        try { if (mediaRecRef.current?.state !== "inactive") mediaRecRef.current?.stop(); } catch {}
         setSummary(data.summary);
-        setPhase("done");
+        setState("completed");
       } else {
-        const nextQ = safeText(data.next_question);
-        setCurQ(nextQ);
+        setQuestion(safeText(data.next_question));
         setQNum(data.question_number);
-        if (nextQ) {
-          setMessages(p => [...p, {
-            id: Date.now() + "q",
-            role: "assistant",
-            content: nextQ,
-            qNum: data.question_number,
-          }]);
-        }
-        startQTimer();
+        setQLeft(perQSec);
+        qStartRef.current = Date.now();
+        submittingRef.current = false;
+        startSpeech();
+        startTimers();
       }
-    } catch (e: any) {
-      alert(e.response?.data?.detail || "Failed to submit answer.");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || err?.message || "Submit failed. Try again.";
+      alert(msg);
+      submittingRef.current = false;
+    } finally { setLoading(false); }
+  };
+
+  const resetToSetup = () => {
+    clearInterval(qTimerRef.current);
+    clearInterval(totalTimerRef.current);
+    killSpeech();
+    setQaHistory([]); setSummary(null); setQuestion("");
+    setLastScore(null); setLastFeedback(""); setDifficulty("medium");
+    setTranscript(""); setConfirmEnd(false); pausedRef.current = false;
+    setState("setup");
   };
 
   if (!mounted) return null;
 
-  const cfg = AGENTS[agentType];
-  const totalPct = totalDur > 0 ? (totalSec / (totalDur * 60)) * 100 : 100;
-  const qPct = perQSec > 0 ? (qLeft / perQSec) * 100 : 100;
+  const avgScore = qaHistory.length > 0
+    ? (qaHistory.reduce((s, q) => s + q.score, 0) / qaHistory.length).toFixed(1) : null;
+  const qPct = (qLeft / perQSec) * 100;
+  const totalPct = (totalLeft / (duration * 60)) * 100;
+  const isSetup = state === "setup";
+  const isActive = state === "in_progress";
+  const isPaused = state === "paused";
+  const isDone = state === "completed";
 
-  // ── SETUP ────────────────────────────────────────────────────────────────
-  if (phase === "setup") return (
-    <div className="min-h-screen mesh-bg flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-2xl">
-        <button onClick={() => router.push("/dashboard")}
-          className="flex items-center gap-2 text-slate-400 hover:text-white text-sm mb-6">
-          <ChevronLeft size={15} />Back
-        </button>
-        <h1 className="text-2xl font-bold mb-1">Configure Interview</h1>
-        <p className="text-slate-400 text-sm mb-6">Set your role, company, timer, and live mode</p>
-
-        {/* Resume banner */}
-        {activeSession && (
-          <div className="glass rounded-2xl p-5 border border-amber-500/30 mb-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
-                  <History size={18} className="text-amber-400" />
-                </div>
-                <div>
-                  <p className="font-semibold text-sm text-amber-400">Unfinished interview found!</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {activeSession.job_role}
-                    {activeSession.company ? ` @ ${activeSession.company}` : ""} —{" "}
-                    {activeSession.agent_type} interview
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Progress: {activeSession.answered_questions}/{activeSession.total_questions} questions answered
-                  </p>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    Started: {new Date(activeSession.started_at).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2 shrink-0">
-                <button onClick={resumeSession} disabled={loading}
-                  className="bg-amber-600 hover:bg-amber-500 transition-colors px-4 py-2 rounded-lg text-xs font-semibold text-white flex items-center gap-1.5">
-                  <Play size={12} />Resume
-                </button>
-                <button onClick={() => setActiveSession(null)}
-                  className="glass border border-white/10 hover:bg-white/5 transition-colors px-4 py-2 rounded-lg text-xs text-slate-400">
-                  Start new
-                </button>
-              </div>
-            </div>
-            {activeSession.last_question && (
-              <div className="mt-3 pt-3 border-t border-white/5">
-                <p className="text-xs text-slate-500 mb-1">Last question:</p>
-                <p className="text-xs text-slate-300 line-clamp-2">{activeSession.last_question}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="glass rounded-2xl p-6 border border-white/5 space-y-5">
-          {/* Agent Type */}
-          <div>
-            <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wide">Interview type</label>
-            <div className="grid grid-cols-2 gap-2">
-              {Object.entries(AGENTS).map(([type, c]) => (
-                <button key={type} onClick={() => setAgentType(type)}
-                  className={`flex items-center gap-2.5 p-3 rounded-xl border text-sm transition-all ${agentType === type ? "border-brand-500/50 bg-brand-600/10 text-white" : "border-white/8 text-slate-400 hover:border-white/15"}`}>
-                  <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${c.color} flex items-center justify-center`}>{c.icon}</div>
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Job Role */}
-          <div>
-            <label className="block text-xs text-slate-500 mb-1.5 uppercase tracking-wide">Job role</label>
-            <select value={jobRole} onChange={e => setJobRole(e.target.value)} className="input-field text-sm py-2.5">
-              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </div>
-
-          {/* Company */}
-          <div>
-            <label className="block text-xs text-slate-500 mb-1.5 uppercase tracking-wide">
-              Target company <span className="text-slate-700 normal-case">(optional)</span>
-            </label>
-            <select value={company} onChange={e => setCompany(e.target.value)} className="input-field text-sm py-2.5">
-              <option value="">No specific company</option>
-              {COMPANIES.filter(Boolean).map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
-          {/* Level */}
-          <div>
-            <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wide">Experience level</label>
-            <div className="grid grid-cols-4 gap-2">
-              {LEVELS.map(l => (
-                <button key={l.v} onClick={() => setLevel(l.v)}
-                  className={`py-2 rounded-lg border text-xs transition-all ${level === l.v ? "border-brand-500/50 bg-brand-600/10 text-white" : "border-white/8 text-slate-400 hover:border-white/15"}`}>
-                  {l.l}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Timer */}
-          <div className="border-t border-white/5 pt-5">
-            <label className="block text-xs text-slate-500 mb-3 uppercase tracking-wide flex items-center gap-1.5">
-              <Timer size={12} />Timer settings
-            </label>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-slate-600 mb-2">Total interview time</p>
-                <div className="flex gap-1.5 flex-wrap">
-                  {DURATIONS.map(d => (
-                    <button key={d.v} onClick={() => setTotalDur(d.v)}
-                      className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${totalDur === d.v ? "border-brand-500/50 bg-brand-600/10 text-brand-400" : "border-white/8 text-slate-500 hover:border-white/15"}`}>
-                      {d.l}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-slate-600 mb-2">Time per question</p>
-                <div className="flex gap-1.5 flex-wrap">
-                  {PER_Q.map(t => (
-                    <button key={t.v} onClick={() => setPerQSec(t.v)}
-                      className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${perQSec === t.v ? "border-amber-500/50 bg-amber-600/10 text-amber-400" : "border-white/8 text-slate-500 hover:border-white/15"}`}>
-                      {t.l}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Camera/Mic/Record */}
-          <div className="border-t border-white/5 pt-5">
-            <label className="block text-xs text-slate-500 mb-3 uppercase tracking-wide flex items-center gap-1.5">
-              <Video size={12} />Live interview mode
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: "Camera",     icon: useCamera ? <Camera size={16} /> : <CameraOff size={16} />, val: useCamera, set: setUseCamera },
-                { label: "Microphone", icon: useMic ? <Mic size={16} /> : <MicOff size={16} />,         val: useMic,    set: setUseMic },
-                { label: "Record",     icon: <Video size={16} />,                                        val: useRec,    set: setUseRec },
-              ].map((item, i) => (
-                <button key={i} onClick={() => item.set(!item.val)}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border text-xs transition-all ${item.val ? "border-emerald-500/50 bg-emerald-600/10 text-emerald-400" : "border-white/8 text-slate-500 hover:border-white/15"}`}>
-                  {item.icon}
-                  <span>{item.label}</span>
-                  <span className={`font-bold ${item.val ? "text-emerald-400" : "text-slate-600"}`}>
-                    {item.val ? "ON" : "OFF"}
-                  </span>
-                </button>
-              ))}
-            </div>
-            {(useCamera || useMic) && (
-              <p className="text-xs text-amber-400 mt-2 flex items-center gap-1">
-                <AlertCircle size={11} />Browser will ask for permission when you start
-              </p>
-            )}
-            {useRec && (
-              <p className="text-xs text-slate-500 mt-1">
-                Recording saved locally — free, private, no uploads
-              </p>
-            )}
-          </div>
-
-          <button onClick={startInterview} disabled={loading}
-            className="btn-primary w-full py-3.5 text-sm flex items-center justify-center gap-2">
-            {loading ? "Starting…" : <><Play size={15} />Start {cfg.label} — {totalDur} min</>}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ── SUMMARY ──────────────────────────────────────────────────────────────
-  if (phase === "done" && summary) return (
-    <div className="min-h-screen mesh-bg p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-6">
-          <div className="text-5xl mb-3">🎉</div>
-          <h1 className="text-2xl font-bold mb-1">Interview Complete!</h1>
-          <p className="text-slate-400 text-sm">Here is your detailed performance analysis</p>
-        </div>
-        <div className="glass rounded-2xl p-6 border border-white/5 mb-4 text-center">
-          <div className="text-5xl font-bold gradient-text mb-1">
-            {Number(summary.overall_score || 0).toFixed(1)}
-          </div>
-          <p className="text-slate-500 text-sm">/10 overall score</p>
-          <div className={`mt-3 inline-block px-3 py-1 rounded-full text-sm font-medium ${safeText(summary.hiring_likelihood).includes("Yes") ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>
-            {safeText(summary.hiring_likelihood) || "Good effort"}
-          </div>
-        </div>
-        <div className="glass rounded-2xl p-5 border border-white/5 mb-4">
-          <p className="text-xs text-slate-500 font-medium mb-2 uppercase tracking-wide">Performance Summary</p>
-          <pre className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed font-sans">
-            {safeText(summary.performance_summary)}
-          </pre>
-        </div>
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="glass rounded-xl p-4 border border-white/5">
-            <p className="text-xs text-emerald-400 font-medium mb-2">✓ Strengths</p>
-            {(Array.isArray(summary.top_strengths) ? summary.top_strengths : []).map((s: string, i: number) => (
-              <div key={i} className="flex items-start gap-1.5 mb-1.5">
-                <Check size={11} className="text-emerald-400 mt-0.5 shrink-0" />
-                <p className="text-xs text-slate-300">{s}</p>
-              </div>
-            ))}
-          </div>
-          <div className="glass rounded-xl p-4 border border-white/5">
-            <p className="text-xs text-amber-400 font-medium mb-2">→ Improve on</p>
-            {(Array.isArray(summary.areas_to_improve) ? summary.areas_to_improve : []).map((s: string, i: number) => (
-              <div key={i} className="flex items-start gap-1.5 mb-1.5">
-                <span className="text-amber-400 text-xs mt-0.5 shrink-0">→</span>
-                <p className="text-xs text-slate-300">{s}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-        {summary.next_steps && (
-          <div className="glass rounded-xl p-4 border border-brand-500/15 mb-4">
-            <p className="text-xs text-brand-400 font-medium mb-1">Next steps</p>
-            <p className="text-xs text-slate-300">{safeText(summary.next_steps)}</p>
-          </div>
-        )}
-        {recs.length > 0 && (
-          <div className="glass rounded-2xl p-5 border border-emerald-500/15 mb-4">
-            <p className="text-sm font-medium text-emerald-400 mb-3 flex items-center gap-2">
-              <Video size={14} />Your recordings ({recs.length})
-            </p>
-            <div className="space-y-2">
-              {recs.map((r, i) => (
-                <div key={i} className="flex items-center justify-between glass-light rounded-lg px-4 py-2.5">
-                  <div>
-                    <p className="text-xs font-medium text-slate-300">{r.name}</p>
-                    <p className="text-xs text-slate-600">{r.size}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <a href={r.url} download={r.name}
-                      className="flex items-center gap-1.5 text-xs bg-brand-600/20 text-brand-400 px-2.5 py-1.5 rounded-lg hover:bg-brand-600/30">
-                      <Download size={11} />Download
-                    </a>
-                    <button onClick={() => { URL.revokeObjectURL(r.url); setRecs(p => p.filter((_, j) => j !== i)); }}
-                      className="text-red-400 p-1.5 rounded-lg hover:bg-red-500/10">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-slate-600 mt-2">⚠️ Download before closing tab</p>
-          </div>
-        )}
-        <div className="flex gap-3">
-          <button onClick={() => { setPhase("setup"); setMessages([]); setSummary(null); setRecs([]); checkActiveSession(); }}
-            className="flex-1 btn-ghost py-3 text-sm flex items-center justify-center gap-2">
-            <RotateCcw size={14} />Practice again
-          </button>
-          <button onClick={() => router.push("/dashboard")}
-            className="flex-1 btn-primary py-3 text-sm">Dashboard</button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ── CHAT ──────────────────────────────────────────────────────────────────
+  // ── SINGLE UNIFIED RENDER ────────────────────────────────────────────
   return (
-    <div className="h-screen bg-dark-950 flex flex-col">
+    <div className="h-screen bg-dark-950 flex flex-col overflow-hidden">
+
+      {/* ── FLOATING CAMERA — always visible, top-right ─────────────── */}
+      <div className="fixed top-4 right-4 z-[100] group">
+        <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-dark-900"
+          style={{
+            width: isSetup ? 220 : 176,
+            aspectRatio: "4/3",
+            border: camReady ? "2px solid rgba(255,255,255,0.15)" : "2px solid rgba(239,68,68,0.4)",
+            transition: "width 0.3s ease",
+          }}>
+          {/* Video — ref callback forces stream attach */}
+          <video
+            ref={(el) => {
+              videoRef.current = el;
+              if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                el.srcObject = streamRef.current;
+                el.play().catch(() => {});
+              }
+            }}
+            autoPlay muted playsInline
+            style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }}
+          />
+
+          {/* Camera not ready */}
+          {!camReady && !camError && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-dark-950">
+              <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mb-2"/>
+              <p className="text-xs text-slate-400">Starting camera…</p>
+            </div>
+          )}
+
+          {/* Camera error */}
+          {camError && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-dark-950 p-3 text-center">
+              <AlertCircle size={20} className="text-red-400 mb-2"/>
+              <p className="text-xs text-red-400 mb-2 leading-tight">{camError}</p>
+              <button onClick={retryCamera}
+                className="flex items-center gap-1 bg-brand-600 hover:bg-brand-500 px-2.5 py-1.5 rounded-lg text-xs">
+                <RefreshCw size={10}/>Retry
+              </button>
+            </div>
+          )}
+
+          {/* Camera off */}
+          {camReady && !camOn && (
+            <div className="absolute inset-0 flex items-center justify-center bg-dark-950/90">
+              <VideoOff size={20} className="text-slate-500"/>
+            </div>
+          )}
+
+          {/* Setup label */}
+          {isSetup && camReady && (
+            <div className="absolute top-2 left-2 bg-dark-950/80 text-xs text-slate-400 px-2 py-0.5 rounded-full border border-white/10">
+              Preview
+            </div>
+          )}
+
+          {/* Live label */}
+          {(isActive || isPaused) && (
+            <div className="absolute top-2 left-2 flex items-center gap-1 bg-dark-950/80 px-2 py-0.5 rounded-full border border-red-500/30">
+              <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-red-400 animate-pulse" : "bg-amber-400"}`}/>
+              <span className="text-xs text-red-400">{isPaused ? "PAUSED" : "LIVE"}</span>
+            </div>
+          )}
+
+          {/* Mic wave */}
+          {isListening && (
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-end gap-0.5">
+              {[2,4,6,4,6,4,2].map((h,i) => (
+                <div key={i} className="w-0.5 bg-emerald-400 rounded-full animate-bounce"
+                  style={{height:`${h*2}px`, animationDelay:`${i*0.07}s`}}/>
+              ))}
+            </div>
+          )}
+
+          {/* Hover controls */}
+          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={toggleCam}
+              className={`w-6 h-6 rounded-full flex items-center justify-center ${camOn?"bg-dark-800/80":"bg-red-500/80"}`}>
+              {camOn?<Video size={10}/>:<VideoOff size={10}/>}
+            </button>
+            <button onClick={toggleMic}
+              className={`w-6 h-6 rounded-full flex items-center justify-center ${micOn?"bg-dark-800/80":"bg-red-500/80"}`}>
+              {micOn?<Mic size={10}/>:<MicOff size={10}/>}
+            </button>
+          </div>
+        </div>
+        {isSetup && (
+          <p className="text-xs text-center mt-1 text-slate-600">
+            {camReady ? "Camera ready ✓" : "Starting…"}
+          </p>
+        )}
+      </div>
+
+      {/* ── HEADER ──────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 py-3 glass border-b border-white/5 shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => {
-            if (confirm("Abandon? You can resume this later.")) {
-              stopMedia();
-              clearInterval(totalRef.current);
-              clearInterval(qRef.current);
-              router.push("/dashboard");
-            }
-          }} className="text-slate-400 hover:text-white">
-            <ChevronLeft size={18} />
+          <button onClick={() => router.push("/dashboard")}
+            className="text-slate-400 hover:text-white transition-colors">
+            <ChevronLeft size={18}/>
           </button>
-          <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${cfg.color} flex items-center justify-center text-sm`}>{cfg.icon}</div>
           <div>
-            <p className="font-medium text-sm">{cfg.label} — {jobRole}</p>
-            <p className="text-xs text-slate-500">{company || "Any company"} · {level}</p>
+            {isSetup ? (
+              <>
+                <p className="font-bold text-base">Interview Setup</p>
+                <p className="text-xs text-slate-500">Configure and start your interview</p>
+              </>
+            ) : (
+              <>
+                <p className="font-medium text-sm">{role} @ {company}</p>
+                <p className="text-xs text-slate-500 flex items-center gap-2">
+                  {isDone ? "Interview complete" : (
+                    <>
+                      <span>Q{qNum}/{totalQs}</span>
+                      <span>·</span>
+                      <span>{level}</span>
+                      <span>·</span>
+                      <span className={`flex items-center gap-0.5 ${difficulty==="hard"?"text-red-400":difficulty==="easy"?"text-emerald-400":"text-amber-400"}`}>
+                        {difficulty==="hard"?<TrendingUp size={9}/>:difficulty==="easy"?<TrendingDown size={9}/>:null}
+                        {difficulty}
+                      </span>
+                    </>
+                  )}
+                </p>
+              </>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          {perQSec > 0 && (
-            <div className={`flex items-center gap-2 ${warn ? "text-red-400" : "text-slate-300"}`}>
-              <Timer size={13} />
-              <div>
-                <p className={`text-sm font-mono font-bold ${warn ? "animate-pulse" : ""}`}>{fmt(qLeft)}</p>
-                <div className="w-14 h-1 bg-dark-800 rounded-full overflow-hidden mt-0.5">
-                  <div className={`h-full rounded-full transition-all duration-1000 ${warn ? "bg-red-500" : "bg-amber-500"}`}
-                    style={{ width: `${qPct}%` }} />
-                </div>
-              </div>
-            </div>
-          )}
-          <div className={`flex items-center gap-2 ${totalSec < 300 ? "text-red-400" : "text-slate-300"}`}>
-            <Clock size={13} />
-            <div>
-              <p className={`text-sm font-mono font-bold ${totalSec < 300 ? "animate-pulse" : ""}`}>{fmt(totalSec)}</p>
-              <div className="w-20 h-1 bg-dark-800 rounded-full overflow-hidden mt-0.5">
-                <div className={`h-full rounded-full transition-all duration-1000 ${totalSec < 300 ? "bg-red-500" : "bg-brand-500"}`}
-                  style={{ width: `${totalPct}%` }} />
-              </div>
-            </div>
-          </div>
-          <span className="text-xs text-slate-500">Q{qNum}/{total}</span>
-          {recording && (
-            <div className="flex items-center gap-1.5 text-xs text-red-400 bg-red-500/10 px-2 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />REC
-            </div>
-          )}
-        </div>
-      </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {camOn && (
-          <div className="w-52 shrink-0 bg-dark-900 border-r border-white/5 flex flex-col">
-            <video ref={videoRef} autoPlay muted playsInline className="w-full flex-1 object-cover" />
-            <div className="p-2 flex gap-1.5 border-t border-white/5">
-              <button onClick={() => { const t = streamRef.current?.getVideoTracks()[0]; if (t) { t.enabled = !t.enabled; setCamOn(t.enabled); } }}
-                className={`flex-1 flex items-center justify-center py-1.5 rounded-lg text-xs ${camOn ? "bg-dark-800 text-slate-300" : "bg-red-500/20 text-red-400"}`}>
-                {camOn ? <Camera size={12} /> : <CameraOff size={12} />}
-              </button>
-              <button onClick={() => { const t = streamRef.current?.getAudioTracks()[0]; if (t) { t.enabled = !t.enabled; setMicOn(t.enabled); } }}
-                className={`flex-1 flex items-center justify-center py-1.5 rounded-lg text-xs ${micOn ? "bg-dark-800 text-slate-300" : "bg-red-500/20 text-red-400"}`}>
-                {micOn ? <Mic size={12} /> : <MicOff size={12} />}
-              </button>
-              {useRec && (
-                <button onClick={() => {
-                  if (recording && recRef.current) { recRef.current.stop(); setRecording(false); }
-                  else if (recRef.current) { recRef.current.start(1000); setRecording(true); }
-                }} className={`flex-1 flex items-center justify-center py-1.5 rounded-lg text-xs ${recording ? "bg-red-500/20 text-red-400" : "bg-dark-800 text-slate-300"}`}>
-                  {recording ? <Square size={12} /> : <Video size={12} />}
-                </button>
-              )}
+        {/* Timers — only during interview */}
+        {(isActive || isPaused) && (
+          <div className="flex items-center gap-6 mr-52">
+            <div className={`text-center ${qLeft<=10?"text-red-400":qLeft<=30?"text-amber-400":"text-slate-200"}`}>
+              <p className={`text-3xl font-mono font-bold tabular-nums ${qLeft<=10?"animate-pulse":""}`}>
+                {fmt(qLeft)}
+              </p>
+              <div className="w-28 h-2 bg-dark-800 rounded-full overflow-hidden mt-1">
+                <div className={`h-full rounded-full transition-all duration-1000 ${qLeft<=10?"bg-red-500":qLeft<=30?"bg-amber-500":"bg-emerald-500"}`}
+                  style={{width:`${qPct}%`}}/>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">this question</p>
+            </div>
+            <div className={`text-center ${totalLeft<300?"text-red-400":"text-slate-500"}`}>
+              <p className="text-lg font-mono font-bold tabular-nums">{fmt(totalLeft)}</p>
+              <div className="w-20 h-1 bg-dark-800 rounded-full overflow-hidden mt-0.5">
+                <div className="h-full bg-brand-500 rounded-full transition-all duration-1000"
+                  style={{width:`${totalPct}%`}}/>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">total left</p>
             </div>
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-3">
-          {warn && perQSec > 0 && (
-            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5 text-red-400 text-sm animate-pulse">
-              <AlertCircle size={15} />Time is almost up! Submit your answer now.
-            </div>
-          )}
-          {totalSec < 300 && totalSec > 0 && (
-            <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2.5 text-amber-400 text-sm">
-              <Clock size={15} />Less than 5 minutes remaining!
-            </div>
-          )}
-          {mediaErr && (
-            <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-2.5 text-yellow-400 text-xs">
-              <AlertCircle size={13} />{mediaErr}
-            </div>
-          )}
+        {/* Score badge during interview */}
+        {(isActive || isPaused) && avgScore && (
+          <div className="mr-52 text-center">
+            <p className={`text-xl font-bold ${Number(avgScore)>=7?"text-emerald-400":Number(avgScore)>=5?"text-amber-400":"text-red-400"}`}>
+              {avgScore}/10
+            </p>
+            <p className="text-xs text-slate-600">avg</p>
+          </div>
+        )}
+      </div>
 
-          {messages.map(m => (
-            <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              {m.role === "assistant" && (
-                <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${cfg.color} flex items-center justify-center text-xs mr-2 mt-0.5 shrink-0`}>
-                  {cfg.icon}
+      {/* ── MAIN AREA ───────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto">
+
+        {/* ══ SETUP STATE ══════════════════════════════════════════════ */}
+        {isSetup && (
+          <div className="max-w-2xl mx-auto px-5 py-6 pr-60">
+
+            {/* Interview type */}
+            <div className="mb-5">
+              <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wide">Interview type</label>
+              <div className="grid grid-cols-2 gap-2">
+                {AGENT_TYPES.map(a => (
+                  <button key={a.v} onClick={() => setAgentType(a.v)}
+                    className={`flex items-center gap-2 p-3 rounded-xl border text-sm transition-all ${agentType===a.v?"border-brand-500/50 bg-brand-600/10 text-white":"border-white/8 text-slate-400 hover:border-white/15"}`}>
+                    <span>{a.icon}</span>{a.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Role + Company */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1.5 uppercase tracking-wide">Job role</label>
+                <select value={role} onChange={e => setRole(e.target.value)} className="input-field text-sm py-2.5">
+                  {ROLES.map(r => <option key={r}>{r}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1.5 uppercase tracking-wide">Target company</label>
+                <select value={company} onChange={e => setCompany(e.target.value)} className="input-field text-sm py-2.5">
+                  {COMPANIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Level */}
+            <div className="mb-4">
+              <label className="block text-xs text-slate-500 mb-2 uppercase tracking-wide">Experience level</label>
+              <div className="grid grid-cols-4 gap-2">
+                {LEVELS.map(l => (
+                  <button key={l.v} onClick={() => setLevel(l.v)}
+                    className={`py-2 rounded-lg border text-xs transition-all ${level===l.v?"border-brand-500/50 bg-brand-600/10 text-white":"border-white/8 text-slate-400 hover:border-white/15"}`}>
+                    {l.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Timer config */}
+            <div className="glass rounded-2xl p-5 border border-white/5 mb-5">
+              <label className="block text-xs text-slate-500 mb-3 uppercase tracking-wide flex items-center gap-1.5">
+                <Timer size={12}/>Timer
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-slate-600 mb-2">Interview duration</p>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {DURATIONS.map(d => (
+                      <button key={d} onClick={() => setDuration(d)}
+                        className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${duration===d?"border-brand-500/50 bg-brand-600/10 text-brand-400":"border-white/8 text-slate-500"}`}>
+                        {d}m
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-600 mb-2">Time per question</p>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {TIME_PER_Q.map(t => (
+                      <button key={t} onClick={() => setTimePerQ(t)}
+                        className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${timePerQ===t?"border-amber-500/50 bg-amber-600/10 text-amber-400":"border-white/8 text-slate-500"}`}>
+                        {t < 1 ? "30s" : `${t}m`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-3 pt-4 border-t border-white/5">
+                {[
+                  { l:"Total questions", v: totalQs },
+                  { l:"Per question",    v: timePerQ < 1 ? "30 sec" : `${timePerQ} min` },
+                  { l:"Total duration",  v: `${duration} min` },
+                ].map((s,i) => (
+                  <div key={i} className="text-center glass-light rounded-xl p-3 border border-white/5">
+                    <p className="text-xl font-bold gradient-text">{s.v}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{s.l}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="glass rounded-xl p-4 border border-brand-500/20 bg-brand-600/5 mb-5">
+              <p className="text-xs font-medium text-brand-400 mb-2">How this works</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  "Camera starts automatically on this page",
+                  "Click Start — same screen transforms to interview",
+                  "Speak your answer — voice is transcribed live",
+                  "Timer auto-submits if you run out of time",
+                  "Pause anytime — timer stops, camera stays on",
+                  "Complete anytime — shows full performance summary",
+                ].map((t,i) => (
+                  <div key={i} className="flex items-start gap-1.5 text-xs text-slate-300">
+                    <span className="text-brand-400 shrink-0">✓</span>{t}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ IN_PROGRESS STATE ════════════════════════════════════════ */}
+        {(isActive || isPaused) && (
+          <div className="px-5 py-5 pr-56">
+
+            {/* Pause overlay */}
+            {isPaused && (
+              <div className="glass rounded-2xl p-6 border border-amber-500/30 mb-4 text-center">
+                <Pause size={28} className="text-amber-400 mx-auto mb-2"/>
+                <p className="font-semibold text-amber-400 mb-1">Interview Paused</p>
+                <p className="text-xs text-slate-500">
+                  Q{qNum}/{totalQs} · {qaHistory.length} answered · Camera is still on (top-right)
+                </p>
+              </div>
+            )}
+
+            {/* Warnings */}
+            {autoWarn && isActive && (
+              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5 text-red-400 text-sm mb-3 animate-pulse">
+                <AlertCircle size={14}/><strong>{qLeft}s left!</strong> Auto-submits at 0.
+              </div>
+            )}
+            {lastScore !== null && (
+              <div className={`flex items-center gap-3 rounded-xl px-4 py-2.5 mb-3 border text-xs ${lastScore>=7?"border-emerald-500/20 bg-emerald-500/5":"border-amber-500/20 bg-amber-500/5"}`}>
+                <span className={`font-bold text-sm shrink-0 ${lastScore>=7?"text-emerald-400":lastScore>=5?"text-amber-400":"text-red-400"}`}>
+                  {lastScore.toFixed(1)}/10
+                </span>
+                <span className="text-slate-400 line-clamp-1">{lastFeedback}</span>
+              </div>
+            )}
+
+            {/* Question */}
+            <div className="glass rounded-2xl p-5 border border-white/5 mb-4">
+              <div className="flex items-start gap-3">
+                <div className="shrink-0 w-9 h-9 rounded-xl bg-brand-600/20 border border-brand-500/30 flex items-center justify-center text-sm font-bold text-brand-400">
+                  {qNum}
+                </div>
+                <pre className="text-base text-white font-sans whitespace-pre-wrap leading-relaxed flex-1">
+                  {question}
+                </pre>
+              </div>
+            </div>
+
+            {/* Transcript */}
+            <div className="glass rounded-xl p-4 border border-white/5 mb-3 min-h-24">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                  {isListening
+                    ? <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"/>Transcribing voice…</>
+                    : isPaused
+                    ? <><Pause size={10}/>Paused</>
+                    : <><MicOff size={10}/>Mic off — type below</>
+                  }
+                </p>
+                <button onClick={() => setTranscript("")} className="text-xs text-slate-600 hover:text-slate-400">
+                  Clear
+                </button>
+              </div>
+              {transcript
+                ? <p className="text-sm text-white leading-relaxed">{transcript}</p>
+                : <p className="text-sm text-slate-600 italic">
+                    {isListening ? "Speak now…" : isPaused ? "Resume to continue" : "Enable mic or type below"}
+                  </p>
+              }
+            </div>
+
+            <textarea value={transcript} onChange={e => setTranscript(e.target.value)}
+              placeholder="Type your answer here (backup if mic is off)…"
+              rows={2} disabled={isPaused}
+              className="w-full bg-dark-900 border border-white/8 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-500/40 resize-none placeholder:text-slate-700 disabled:opacity-40"/>
+          </div>
+        )}
+
+        {/* ══ COMPLETED STATE ══════════════════════════════════════════ */}
+        {isDone && (
+          <div className="max-w-2xl mx-auto px-5 py-6">
+            <div className="text-center mb-5">
+              <div className="text-4xl mb-2">🎉</div>
+              <h2 className="text-xl font-bold">Interview Complete</h2>
+              <p className="text-slate-400 text-sm mt-1">
+                {qaHistory.length} of {totalQs} questions · {role} @ {company}
+              </p>
+            </div>
+
+            {/* Score */}
+            <div className="glass rounded-2xl p-5 border border-white/5 mb-4 text-center">
+              <div className="text-5xl font-bold gradient-text mb-1">{avgScore ?? "—"}</div>
+              <p className="text-slate-500 text-sm">/10 average score</p>
+              {summary?.hiring_likelihood && (
+                <div className={`mt-3 inline-block px-3 py-1 rounded-full text-sm font-medium ${safeText(summary.hiring_likelihood).includes("Yes")?"bg-emerald-500/10 text-emerald-400":"bg-amber-500/10 text-amber-400"}`}>
+                  {safeText(summary.hiring_likelihood)}
                 </div>
               )}
-              <div className={`max-w-xl rounded-2xl px-4 py-3 ${m.role === "user" ? "bg-brand-600/20 border border-brand-500/20 ml-10" : "glass border border-white/5"}`}>
-                {m.qNum && <p className="text-xs text-brand-400 mb-1 font-medium">Question {m.qNum} of {total}</p>}
-                <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans">{m.content}</pre>
-                {m.score != null && (
-                  <div className="mt-3 pt-3 border-t border-white/5 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-0.5">
-                        {Array.from({ length: 10 }).map((_, i) => (
-                          <div key={i} className={`w-1.5 h-1.5 rounded-full ${i < Math.round(m.score!) ? "bg-brand-400" : "bg-dark-800"}`} />
-                        ))}
-                      </div>
-                      <span className={`text-sm font-bold ${m.score >= 7 ? "text-emerald-400" : m.score >= 5 ? "text-amber-400" : "text-red-400"}`}>
-                        {m.score.toFixed(1)}/10
-                      </span>
-                    </div>
-                    {m.strongPoints && m.strongPoints.length > 0 && (
-                      <div>
-                        <p className="text-xs text-emerald-400 font-medium mb-0.5">✓ Strengths</p>
-                        {m.strongPoints.map((p, i) => <p key={i} className="text-xs text-slate-400 ml-3">• {p}</p>)}
-                      </div>
-                    )}
-                    {m.improvements && m.improvements.length > 0 && (
-                      <div>
-                        <p className="text-xs text-amber-400 font-medium mb-0.5">→ Improve</p>
-                        {m.improvements.map((p, i) => <p key={i} className="text-xs text-slate-400 ml-3">• {p}</p>)}
-                      </div>
-                    )}
-                    {m.suggested && (
-                      <details className="mt-1">
-                        <summary className="text-xs text-brand-400 cursor-pointer flex items-center gap-1">
-                          <Lightbulb size={11} />Model answer
-                        </summary>
-                        <pre className="mt-2 text-xs text-slate-300 bg-dark-900 rounded-lg p-3 border border-white/5 whitespace-pre-wrap font-sans">
-                          {m.suggested}
-                        </pre>
-                      </details>
-                    )}
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {[
+                { l:"Questions done", v: qaHistory.length },
+                { l:"Avg score",      v: avgScore ? `${avgScore}/10` : "—" },
+                { l:"Duration",       v: `${duration - Math.floor(totalLeft/60)}/${duration}m` },
+              ].map((s,i) => (
+                <div key={i} className="glass rounded-xl p-3 border border-white/5 text-center">
+                  <p className="text-lg font-bold gradient-text">{s.v}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{s.l}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Summary */}
+            {summary && (
+              <div className="glass rounded-2xl p-4 border border-white/5 mb-4">
+                <p className="text-xs text-slate-500 uppercase font-medium mb-2">Performance Summary</p>
+                <pre className="text-sm text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">
+                  {safeText(summary.performance_summary)}
+                </pre>
+                {summary.next_steps && (
+                  <div className="mt-3 pt-3 border-t border-white/5">
+                    <p className="text-xs text-brand-400 font-medium mb-1">Next steps</p>
+                    <p className="text-xs text-slate-400">{safeText(summary.next_steps)}</p>
                   </div>
                 )}
               </div>
-            </div>
-          ))}
+            )}
 
-          {loading && (
-            <div className="flex justify-start">
-              <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${cfg.color} flex items-center justify-center text-xs mr-2 shrink-0`}>{cfg.icon}</div>
-              <div className="glass border border-white/5 rounded-2xl px-5 py-4 flex items-center gap-1.5">
-                {[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-slate-400 typing-dot" />)}
+            {/* Q&A history */}
+            {qaHistory.length > 0 && (
+              <div className="glass rounded-2xl p-4 border border-white/5 mb-4">
+                <p className="text-xs text-slate-500 uppercase font-medium mb-3">Question Review</p>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {qaHistory.map((qa,i) => (
+                    <div key={i} className={`rounded-xl p-3 border ${qa.score>=7?"border-emerald-500/20 bg-emerald-500/5":qa.score>=5?"border-amber-500/20 bg-amber-500/5":"border-red-500/20 bg-red-500/5"}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500">Q{i+1}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${qa.difficulty==="hard"?"bg-red-500/10 text-red-400":qa.difficulty==="easy"?"bg-emerald-500/10 text-emerald-400":"bg-amber-500/10 text-amber-400"}`}>{qa.difficulty}</span>
+                          <span className="text-xs text-slate-600">{qa.timeUsed}s</span>
+                        </div>
+                        <span className={`text-sm font-bold ${qa.score>=7?"text-emerald-400":qa.score>=5?"text-amber-400":"text-red-400"}`}>
+                          {qa.score.toFixed(1)}/10
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 line-clamp-2">{qa.question}</p>
+                      <details>
+                        <summary className="text-xs text-brand-400 cursor-pointer mt-1">View answer + feedback ▸</summary>
+                        <p className="text-xs text-slate-400 mt-1 italic border-l-2 border-white/10 pl-2">"{qa.answer}"</p>
+                        <p className="text-xs text-slate-500 mt-1">{qa.feedback}</p>
+                      </details>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-          <div ref={endRef} />
-        </div>
+            )}
+
+            {/* Recordings */}
+            {recs.length > 0 && (
+              <div className="glass rounded-2xl p-4 border border-emerald-500/20 mb-4">
+                <p className="text-sm font-medium text-emerald-400 mb-3 flex items-center gap-2">
+                  <Video size={14}/>Session recording
+                </p>
+                {recs.map((r,i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <p className="text-xs text-slate-400 truncate mr-3">{r.name}</p>
+                    <div className="flex gap-2 shrink-0">
+                      <a href={r.url} download={r.name}
+                        className="flex items-center gap-1.5 text-xs bg-brand-600/20 text-brand-400 border border-brand-500/25 px-3 py-1.5 rounded-lg">
+                        <Download size={11}/>Download
+                      </a>
+                      <button onClick={()=>{URL.revokeObjectURL(r.url);setRecs([]);}}
+                        className="text-red-400 p-1.5 rounded-lg hover:bg-red-500/10">
+                        <Trash2 size={13}/>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-xs text-slate-600 mt-2">⚠️ Download before closing — local only</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className={`px-5 py-4 glass border-t shrink-0 ${warn ? "border-red-500/30" : "border-white/5"}`}>
-        <div className="max-w-3xl mx-auto flex items-end gap-3">
-          <textarea value={input} onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
-            placeholder="Type your answer… (Enter to submit · Shift+Enter for new line)"
-            rows={2} disabled={loading}
-            className={`flex-1 bg-dark-900 border rounded-xl px-4 py-3 text-sm focus:outline-none transition-colors resize-none placeholder:text-slate-700 disabled:opacity-50 min-h-[52px] max-h-36 ${warn ? "border-red-500/40" : "border-white/8 focus:border-brand-500/40"}`} />
-          <button onClick={submit} disabled={loading || !input.trim()}
-            className={`w-11 h-11 disabled:opacity-40 disabled:cursor-not-allowed transition-all rounded-xl flex items-center justify-center shrink-0 active:scale-95 ${warn ? "bg-red-600 hover:bg-red-500" : "bg-brand-600 hover:bg-brand-500"}`}>
-            <Send size={15} />
-          </button>
-        </div>
-        <p className="text-center text-xs text-slate-700 mt-1.5">
-          Enter to submit · Shift+Enter for new line
-          {perQSec > 0 && <> · <span className={warn ? "text-red-400 font-medium" : ""}>{fmt(qLeft)} for this question</span></>}
-        </p>
+      {/* ── BOTTOM CONTROLS ──────────────────────────────────────────── */}
+      <div className={`shrink-0 border-t px-5 py-4 glass ${autoWarn && isActive ? "border-red-500/30" : "border-white/5"}`}>
+
+        {/* Confirm end modal */}
+        {confirmEnd && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-dark-950/80 backdrop-blur-sm">
+            <div className="glass rounded-2xl p-6 border border-red-500/25 max-w-sm w-full mx-4 text-center">
+              <StopCircle size={32} className="text-red-400 mx-auto mb-3"/>
+              <h3 className="font-bold text-lg mb-2">Complete interview now?</h3>
+              <p className="text-slate-400 text-sm mb-4">
+                Shows summary for {qaHistory.length} answered questions.
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmEnd(false)} className="flex-1 btn-ghost py-2.5 text-sm">
+                  Cancel
+                </button>
+                <button onClick={completeInterview}
+                  className="flex-1 bg-red-600 hover:bg-red-500 transition-colors py-2.5 rounded-xl text-sm font-medium">
+                  Yes, complete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── SETUP controls ── */}
+        {isSetup && (
+          <div className="max-w-2xl mx-auto pr-56">
+            <button onClick={startInterview} disabled={loading}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition-all active:scale-95 py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2">
+              {loading ? "Starting…" : <><Play size={18}/>Start Interview — {totalQs} Questions</>}
+            </button>
+            {!camReady && (
+              <p className="text-xs text-amber-400 text-center mt-2 flex items-center justify-center gap-1">
+                <AlertCircle size={11}/>Waiting for camera access (top-right)
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ── IN_PROGRESS controls ── */}
+        {isActive && (
+          <div className="pr-52">
+            <div className="flex gap-3 mb-3">
+              {/* Submit */}
+              <button onClick={doSubmit} disabled={loading}
+                className={`flex-1 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 ${
+                  qLeft<=10?"bg-red-600 hover:bg-red-500 animate-pulse":qLeft<=30?"bg-amber-600 hover:bg-amber-500":"bg-brand-600 hover:bg-brand-500"
+                }`}>
+                {loading ? "Evaluating…" : <><Send size={15}/>Submit Answer</>}
+              </button>
+              {/* Stop */}
+              <button onClick={stopInterview}
+                className="flex items-center gap-1.5 glass border border-amber-500/30 hover:bg-amber-500/10 text-amber-400 transition-colors px-4 py-3.5 rounded-xl text-sm font-medium">
+                <Pause size={14}/>Stop
+              </button>
+              {/* Complete */}
+              <button onClick={() => setConfirmEnd(true)}
+                className="flex items-center gap-1.5 glass border border-red-500/30 hover:bg-red-500/10 text-red-400 transition-colors px-4 py-3.5 rounded-xl text-sm font-medium">
+                <StopCircle size={14}/>End
+              </button>
+            </div>
+            <p className="text-center text-xs text-slate-700">
+              Auto-submits at 0:00 · Stop pauses timer · End shows summary
+            </p>
+          </div>
+        )}
+
+        {/* ── PAUSED controls ── */}
+        {isPaused && (
+          <div className="flex gap-3 pr-52">
+            <button onClick={resumeInterview}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-500 transition-all active:scale-95 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
+              <Play size={15}/>Resume Interview
+            </button>
+            <button onClick={() => setConfirmEnd(true)}
+              className="flex items-center gap-2 glass border border-red-500/30 hover:bg-red-500/10 text-red-400 transition-colors px-5 py-3.5 rounded-xl text-sm font-medium">
+              <StopCircle size={14}/>Complete Interview
+            </button>
+          </div>
+        )}
+
+        {/* ── COMPLETED controls ── */}
+        {isDone && (
+          <div className="flex gap-3 max-w-2xl mx-auto">
+            <button onClick={resetToSetup}
+              className="flex-1 btn-ghost py-3 text-sm flex items-center justify-center gap-2">
+              <RotateCcw size={14}/>Practice Again
+            </button>
+            <button onClick={() => router.push("/dashboard")}
+              className="flex-1 btn-primary py-3 text-sm">
+              Dashboard
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -811,8 +975,12 @@ function InterviewInner() {
 
 export default function InterviewPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-dark-950 flex items-center justify-center text-slate-400">Loading…</div>}>
-      <InterviewInner />
+    <Suspense fallback={
+      <div className="h-screen bg-dark-950 flex items-center justify-center text-slate-400">
+        Loading…
+      </div>
+    }>
+      <InterviewApp />
     </Suspense>
   );
 }

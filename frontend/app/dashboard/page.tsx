@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   Brain, Code2, Users, FileText, Award, TrendingUp,
   Clock, Plus, ChevronRight, LogOut, Settings, Play,
-  RotateCcw, AlertCircle
+  RotateCcw, AlertCircle, Trophy, Calendar
 } from "lucide-react";
 import api from "@/lib/api";
 import StreakTracker from "@/app/components/StreakTracker";
@@ -89,7 +89,8 @@ export default function DashboardPage() {
   const nav = [
     { href: "/dashboard",  icon: <TrendingUp size={16}/>, label: "Dashboard" },
     { href: "/interview",  icon: <Brain size={16}/>,      label: "Start Interview" },
-    { href: "/resume",     icon: <FileText size={16}/>,   label: "Resume Review" },
+    { href: "/resume",          icon: <FileText size={16}/>, label: "Resume Review" },
+    { href: "/resume-builder", icon: <Plus size={16}/>,     label: "Resume Builder" },
     { href: "/playground", icon: <Code2 size={16}/>,      label: "Code Playground" },
     { href: "/social",     icon: <Users size={16}/>,      label: "Social" },
     { href: "/companies",  icon: <Award size={16}/>,      label: "Companies" },

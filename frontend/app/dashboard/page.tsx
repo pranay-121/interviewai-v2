@@ -1,177 +1,290 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Brain, Code2, Users, FileText, Award, TrendingUp, Clock, Plus, ChevronRight, LogOut, Settings, Video } from "lucide-react";
-import { useAuthStore } from "@/lib/store";
+import {
+  Brain, Code2, Users, FileText, Award, TrendingUp,
+  Clock, Plus, ChevronRight, LogOut, Settings, Play,
+  RotateCcw, AlertCircle
+} from "lucide-react";
 import api from "@/lib/api";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { useAuthStore } from "@/lib/store";
 
-const NAV = [
-  { href:"/dashboard", icon:<Brain size={16}/>, label:"Dashboard" },
-  { href:"/live-interview", icon:<Video size={16}/>, label:"Live Interview" },
-    { href:"/interview", icon:<Brain size={16}/>, label:"Start Interview" },
-  { href:"/resume", icon:<FileText size={16}/>, label:"Resume Review" },
-  { href:"/playground", icon:<Code2 size={16}/>, label:"Code Playground" },
-  { href:"/social", icon:<Users size={16}/>, label:"Social" },
-  { href:"/companies", icon:<Award size={16}/>, label:"Companies" },
-  { href:"/history", icon:<Clock size={16}/>, label:"History" },
-];
+interface Session {
+  id: string;
+  agent_type: string;
+  job_role: string;
+  company: string;
+  status: string;
+  overall_score: number | null;
+  answered_questions: number;
+  total_questions: number;
+  started_at: string;
+}
 
-const AGENTS = [
-  { type:"hr", icon:"🎯", label:"HR Interview", color:"from-violet-600 to-purple-600" },
-  { type:"technical", icon:"⚙️", label:"Technical", color:"from-blue-600 to-cyan-500" },
-  { type:"coding", icon:"💻", label:"Coding", color:"from-emerald-600 to-teal-500" },
-  { type:"system_design", icon:"🏗️", label:"System Design", color:"from-orange-600 to-amber-500" },
-];
+const AGENT_ICONS: Record<string, string> = {
+  hr: "🎯", technical: "⚙️", coding: "💻", system_design: "🏗️",
+};
+
+const AGENT_COLORS: Record<string, string> = {
+  hr: "from-violet-600 to-purple-600",
+  technical: "from-blue-600 to-cyan-500",
+  coding: "from-emerald-600 to-teal-500",
+  system_design: "from-orange-600 to-amber-500",
+};
 
 export default function DashboardPage() {
-  const { user, logout } = useAuthStore();
   const router = useRouter();
-  const [history, setHistory] = useState<any[]>([]);
-  const [perf, setPerf] = useState<any>(null);
+  const { user, clearAuth } = useAuthStore();
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [stats, setStats] = useState({ total: 0, avgScore: null as number | null });
   const [loading, setLoading] = useState(true);
+  const [resumeLoading, setResumeLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) { router.push("/login"); return; }
-    Promise.all([api.get("/interviews/history?limit=5"), api.get("/users/me/performance")])
-      .then(([h,p]) => { setHistory(h.data); setPerf(p.data); })
-      .finally(() => setLoading(false));
-  }, [user]);
+    loadData();
+  }, []);
 
-  const chartData = perf ? Object.values(perf.performance_by_agent).flat().slice(-12) : [];
-  const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 18 ? "Good afternoon" : "Good evening";
+  const loadData = async () => {
+    try {
+      const { data } = await api.get("/interviews/history?limit=10");
+      setSessions(data.sessions || []);
+      const completed = (data.sessions || []).filter((s: Session) => s.overall_score != null);
+      const avg = completed.length > 0
+        ? completed.reduce((sum: number, s: Session) => sum + (s.overall_score || 0), 0) / completed.length
+        : null;
+      setStats({ total: data.sessions?.length || 0, avgScore: avg });
+    } catch {}
+    finally { setLoading(false); }
+  };
+
+  const handleLogout = () => { clearAuth(); router.push("/login"); };
+
+  const resumeSession = async (session: Session) => {
+    setResumeLoading(session.id);
+    try {
+      const { data } = await api.get(`/interviews/${session.id}`);
+      // Get last question from messages
+      const msgs = data.messages || [];
+      const lastQ = [...msgs].reverse().find((m: any) => m.role === "assistant");
+      const params = new URLSearchParams({
+        session_id: session.id,
+        agent_type: session.agent_type,
+        job_role: session.job_role,
+        company: session.company || "",
+        level: data.experience_level || "mid",
+        question_number: String(session.answered_questions + 1),
+        total_questions: String(session.total_questions),
+        last_question: lastQ?.content || "",
+        resume: "true",
+      });
+      router.push(`/interview?${params.toString()}`);
+    } catch {
+      router.push(`/interview?type=${session.agent_type}&resume=${session.id}`);
+    } finally {
+      setResumeLoading(null);
+    }
+  };
+
+  const nav = [
+    { href: "/dashboard",  icon: <TrendingUp size={16}/>, label: "Dashboard" },
+    { href: "/interview",  icon: <Brain size={16}/>,      label: "Start Interview" },
+    { href: "/resume",     icon: <FileText size={16}/>,   label: "Resume Review" },
+    { href: "/playground", icon: <Code2 size={16}/>,      label: "Code Playground" },
+    { href: "/social",     icon: <Users size={16}/>,      label: "Social" },
+    { href: "/companies",  icon: <Award size={16}/>,      label: "Companies" },
+    { href: "/history",    icon: <Clock size={16}/>,      label: "History" },
+  ];
+
+  const greeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  };
 
   return (
-    <div className="min-h-screen bg-dark-950 text-white flex">
+    <div className="min-h-screen bg-dark-950 flex">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 bottom-0 w-56 glass border-r border-white/5 flex flex-col z-40">
-        <div className="p-5 border-b border-white/5">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500 to-purple-500 flex items-center justify-center font-bold text-xs">AI</div>
-            <span className="font-semibold">InterviewAI</span>
-          </div>
+      <div className="w-56 shrink-0 glass border-r border-white/5 flex flex-col py-5 px-3">
+        <div className="flex items-center gap-2.5 px-3 mb-7">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500 to-purple-500 flex items-center justify-center text-xs font-bold">AI</div>
+          <span className="font-bold text-sm">InterviewAI</span>
         </div>
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {NAV.map(item => (
-            <Link key={item.href} href={item.href}
-              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all">
+        <nav className="flex-1 space-y-0.5">
+          {nav.map(item => (
+            <button key={item.href} onClick={() => router.push(item.href)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
+                item.href === "/dashboard"
+                  ? "bg-brand-600/15 text-brand-400"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}>
               {item.icon}{item.label}
-            </Link>
+            </button>
           ))}
         </nav>
-        <div className="p-3 border-t border-white/5 space-y-1">
-          <button onClick={() => { logout(); router.push("/"); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-slate-500 hover:text-white hover:bg-white/5 transition-all">
-            <LogOut size={15}/>Sign out
+        <div className="space-y-0.5">
+          <button onClick={() => router.push("/settings")}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all">
+            <Settings size={16}/>Settings
+          </button>
+          <button onClick={handleLogout}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/5 transition-all">
+            <LogOut size={16}/>Sign out
           </button>
         </div>
-      </aside>
+      </div>
 
       {/* Main */}
-      <main className="ml-56 flex-1 p-8 max-w-5xl">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold">{greeting}, {user?.full_name?.split(" ")[0] || "there"} 👋</h1>
-          <p className="text-slate-400 text-sm mt-1">Ready to ace your next interview?</p>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          {[
-            { label:"Total Sessions", value: user?.stats?.total_interviews ?? 0, icon:<Brain size={16} className="text-brand-400"/>, color:"brand" },
-            { label:"Average Score", value: user?.stats?.avg_score ? `${user.stats.avg_score}/10` : "—", icon:<TrendingUp size={16} className="text-emerald-400"/>, color:"emerald" },
-            { label:"Subscription", value: user?.subscription_tier === "premium" ? "⭐ Premium" : "Free", icon:<Award size={16} className="text-amber-400"/>, color:"amber" },
-          ].map(s => (
-            <div key={s.label} className="glass rounded-2xl p-5 border border-white/5">
-              <div className="flex items-center gap-2 mb-3">{s.icon}<span className="text-xs text-slate-500">{s.label}</span></div>
-              <div className="text-2xl font-bold">{s.value}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Quick start */}
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold">Start interview</h2>
-            <Link href="/interview" className="text-xs text-brand-400 hover:text-brand-300">All options →</Link>
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-8 py-8">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold mb-1">
+              {greeting()}, {user?.full_name?.split(" ")[0] || "there"} 👋
+            </h1>
+            <p className="text-slate-400 text-sm">Ready to ace your next interview?</p>
           </div>
-          <div className="grid grid-cols-4 gap-3">
-            {AGENTS.map(a => (
-              <Link key={a.type} href={`/interview?type=${a.type}`}
-                className="glass rounded-xl p-4 border border-white/5 hover:border-brand-500/30 transition-all hover:-translate-y-0.5 group">
-                <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${a.color} flex items-center justify-center text-lg mb-2.5`}>{a.icon}</div>
-                <p className="text-xs font-medium">{a.label}</p>
-              </Link>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            {[
+              { label: "Total Sessions", value: stats.total, icon: <Clock size={18}/> },
+              { label: "Average Score",  value: stats.avgScore ? `${stats.avgScore.toFixed(1)}/10` : "—", icon: <TrendingUp size={18}/> },
+              { label: "Subscription",  value: "Free", icon: <Award size={18}/> },
+            ].map((s,i) => (
+              <div key={i} className="glass rounded-2xl p-5 border border-white/5">
+                <div className="flex items-center gap-2 text-slate-500 mb-2 text-sm">{s.icon}{s.label}</div>
+                <p className="text-2xl font-bold">{s.value}</p>
+              </div>
             ))}
           </div>
-        </section>
 
-        {/* Chart */}
-        {chartData.length > 1 && (
-          <section className="mb-8">
-            <h2 className="font-semibold mb-3">Score trend</h2>
-            <div className="glass rounded-2xl p-5 border border-white/5 h-40">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <XAxis dataKey="date" hide/>
-                  <YAxis domain={[0,10]} hide/>
-                  <Tooltip contentStyle={{background:"#0f172a",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,fontSize:12}}/>
-                  <Line type="monotone" dataKey="score" stroke="#6366f1" strokeWidth={2} dot={{fill:"#6366f1",r:3}}/>
-                </LineChart>
-              </ResponsiveContainer>
+          {/* Start interview */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold">Start interview</h2>
+              <button onClick={() => router.push("/interview")}
+                className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1">
+                All options <ChevronRight size={13}/>
+              </button>
             </div>
-          </section>
-        )}
-
-        {/* Recent interviews */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold">Recent interviews</h2>
-            <Link href="/history" className="text-xs text-brand-400 hover:text-brand-300">View all →</Link>
-          </div>
-          {loading ? (
-            <div className="space-y-2">
-              {[1,2,3].map(i => <div key={i} className="shimmer rounded-xl h-16"/>)}
-            </div>
-          ) : history.length === 0 ? (
-            <div className="glass rounded-2xl p-10 border border-dashed border-white/8 text-center">
-              <div className="text-3xl mb-2">🎯</div>
-              <p className="font-medium text-sm mb-1">No interviews yet</p>
-              <p className="text-slate-500 text-xs mb-4">Complete your first session to see it here</p>
-              <Link href="/interview" className="btn-primary text-xs px-4 py-2 inline-flex items-center gap-1.5">
-                <Plus size={13}/>Start now
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {history.map(s => (
-                <Link key={s.id} href={`/history`}
-                  className="flex items-center justify-between glass rounded-xl px-5 py-3.5 border border-white/5 hover:border-white/10 transition-all group">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">{AGENTS.find(a=>a.type===s.agent_type)?.icon||"📋"}</span>
-                    <div>
-                      <p className="text-sm font-medium">{s.job_role}{s.company?` @ ${s.company}`:""}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{s.agent_type} · {new Date(s.started_at).toLocaleDateString()}</p>
-                    </div>
+            <div className="grid grid-cols-4 gap-3">
+              {Object.entries(AGENT_ICONS).map(([type, icon]) => (
+                <button key={type} onClick={() => router.push(`/interview?type=${type}`)}
+                  className="glass rounded-2xl p-5 border border-white/5 hover:border-brand-500/30 transition-all group text-left">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${AGENT_COLORS[type]} flex items-center justify-center text-lg mb-3`}>
+                    {icon}
                   </div>
-                  <div className="flex items-center gap-3">
-                    {s.overall_score != null && (
-                      <span className={`font-bold text-sm ${s.overall_score>=7?"text-emerald-400":s.overall_score>=5?"text-amber-400":"text-red-400"}`}>
-                        {s.overall_score.toFixed(1)}/10
-                      </span>
-                    )}
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${s.status==="completed"?"bg-emerald-500/10 text-emerald-400":s.status==="in_progress"?"bg-brand-500/10 text-brand-400":"bg-dark-800 text-slate-500"}`}>
-                      {s.status}
-                    </span>
-                    <ChevronRight size={14} className="text-slate-600 group-hover:text-slate-400"/>
-                  </div>
-                </Link>
+                  <p className="text-sm font-medium capitalize group-hover:text-brand-400 transition-colors">
+                    {type.replace("_", " ")}
+                  </p>
+                </button>
               ))}
             </div>
-          )}
-        </section>
-      </main>
+          </div>
+
+          {/* Recent interviews */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold">Recent interviews</h2>
+              <button onClick={() => router.push("/history")}
+                className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1">
+                View all <ChevronRight size={13}/>
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="space-y-2">
+                {[1,2,3].map(i => <div key={i} className="shimmer rounded-xl h-16"/>)}
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className="glass rounded-2xl p-10 border border-dashed border-white/8 text-center">
+                <Brain size={28} className="mx-auto mb-3 text-slate-700"/>
+                <p className="text-sm font-medium mb-1">No interviews yet</p>
+                <p className="text-xs text-slate-600 mb-4">Start your first mock interview to see results here</p>
+                <button onClick={() => router.push("/interview")}
+                  className="btn-primary text-sm px-5 py-2 flex items-center gap-2 mx-auto">
+                  <Plus size={14}/>Start interview
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {sessions.map(s => (
+                  <div key={s.id}
+                    className="glass rounded-xl border border-white/5 hover:border-white/10 transition-all">
+                    <div className="flex items-center justify-between px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${AGENT_COLORS[s.agent_type] || "from-slate-600 to-slate-700"} flex items-center justify-center text-sm shrink-0`}>
+                          {AGENT_ICONS[s.agent_type] || "⚙️"}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">
+                            {s.job_role}{s.company ? ` @ ${s.company}` : ""}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {s.agent_type.replace("_"," ")} · {new Date(s.started_at).toLocaleDateString("en-IN")}
+                            {s.status === "in_progress" && (
+                              <span className="ml-2 text-amber-400">
+                                · {s.answered_questions}/{s.total_questions} questions done
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {/* Score badge */}
+                        {s.overall_score != null ? (
+                          <span className={`text-sm font-bold ${s.overall_score >= 7 ? "text-emerald-400" : s.overall_score >= 5 ? "text-amber-400" : "text-red-400"}`}>
+                            {s.overall_score.toFixed(1)}/10
+                          </span>
+                        ) : (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.status === "in_progress" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : "bg-slate-500/10 text-slate-400"}`}>
+                            {s.status === "in_progress" ? "In progress" : s.status}
+                          </span>
+                        )}
+
+                        {/* Resume button for in_progress */}
+                        {s.status === "in_progress" ? (
+                          <button
+                            onClick={() => resumeSession(s)}
+                            disabled={resumeLoading === s.id}
+                            className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 transition-colors px-3 py-1.5 rounded-lg text-xs font-medium">
+                            {resumeLoading === s.id
+                              ? <RotateCcw size={11} className="animate-spin"/>
+                              : <Play size={11}/>
+                            }
+                            {resumeLoading === s.id ? "Loading…" : "Resume"}
+                          </button>
+                        ) : (
+                          <button onClick={() => router.push(`/history`)}
+                            className="text-slate-600 hover:text-slate-400 transition-colors">
+                            <ChevronRight size={16}/>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Progress bar for in_progress */}
+                    {s.status === "in_progress" && s.total_questions > 0 && (
+                      <div className="px-5 pb-3">
+                        <div className="w-full h-1 bg-dark-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-brand-500 rounded-full transition-all"
+                            style={{ width: `${(s.answered_questions / s.total_questions) * 100}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-slate-600 mt-1">
+                          {Math.round((s.answered_questions / s.total_questions) * 100)}% complete — click Resume to continue
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

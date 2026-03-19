@@ -34,7 +34,7 @@ const AGENT_COLORS: Record<string, string> = {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, clearAuth } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [stats, setStats] = useState({ total: 0, avgScore: null as number | null });
   const [loading, setLoading] = useState(true);
@@ -57,7 +57,7 @@ export default function DashboardPage() {
     finally { setLoading(false); }
   };
 
-  const handleLogout = () => { clearAuth(); router.push("/login"); };
+  const handleLogout = () => { logout(); router.push("/login"); };
 
   const resumeSession = async (session: Session) => {
     setResumeLoading(session.id);

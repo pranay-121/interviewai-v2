@@ -58,7 +58,7 @@ export default function DashboardPage() {
     finally { setLoading(false); }
   };
 
-  const handleLogout = () => { logout(); router.push("/login"); };
+  const handleLogout = async () => { await logout(); router.push("/login"); };
 
   const resumeSession = async (session: Session) => {
     setResumeLoading(session.id);

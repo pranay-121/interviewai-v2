@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     HR_LLM_MODEL: str = "mistral:7b"
     RESUME_LLM_MODEL: str = "gemma:7b"
 
+    SMTP_EMAIL: str = ""
+    SMTP_PASSWORD: str = ""
+
     MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin123"

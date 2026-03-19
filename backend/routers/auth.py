@@ -9,6 +9,7 @@ from core.database import get_db
 from core.security import hash_password, verify_password, create_access_token, create_refresh_token
 from core.config import settings
 from core.redis_client import redis_client
+from core.email import send_reset_email
 from models.models import User
 import httpx
 
@@ -159,8 +160,11 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
     # For now return the token directly (show in UI for demo)
     reset_link = f"https://interviewai-beta-one.vercel.app/reset-password?token={reset_token}"
     
+    # Send email
+    await send_reset_email(body.email, reset_token, reset_link)
+
     return {
-        "message": "Password reset link generated successfully.",
+        "message": "Password reset link sent to your email!" if settings.SMTP_EMAIL else "Password reset link generated.",
         "reset_token": reset_token,  # Remove in production — send via email instead
         "reset_link": reset_link,
         "expires_in": "15 minutes",

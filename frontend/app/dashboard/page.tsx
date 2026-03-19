@@ -146,7 +146,10 @@ export default function DashboardPage() {
               {greeting()}, {user?.full_name?.split(" ")[0] || "there"} 👋
             </h1>
             <div className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-3 mt-1">
             <p className="text-slate-400 text-sm">Ready to ace your next interview?</p>
+          </div>
+          <p className="text-xs text-slate-600 mt-1">Logged in as <span className="text-brand-400">{user?.email}</span></p>
             <StreakTracker/>
           </div>
           </div>

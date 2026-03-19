@@ -8,6 +8,9 @@ import {
   CheckCircle, Camera
 } from "lucide-react";
 import api from "@/lib/api";
+import ShareCard from "@/app/components/ShareCard";
+import InterviewPDF from "@/app/components/InterviewPDF";
+import { recordPracticeDay } from "@/app/components/StreakTracker";
 
 // ── Constants ────────────────────────────────────────────────────────────
 const ROLES = [
@@ -128,6 +131,7 @@ function InterviewApp() {
   const [lastScore, setLastScore] = useState<number | null>(null);
   const [lastFeedback, setLastFeedback] = useState("");
   const [summary, setSummary] = useState<any>(null);
+  const [showShare, setShowShare] = useState(false);
   const [difficulty, setDifficulty] = useState<"easy"|"medium"|"hard">("medium");
   const [autoWarn, setAutoWarn] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);

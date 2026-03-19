@@ -7,6 +7,7 @@ import {
   RotateCcw, AlertCircle
 } from "lucide-react";
 import api from "@/lib/api";
+import StreakTracker from "@/app/components/StreakTracker";
 import { useAuthStore } from "@/lib/store";
 
 interface Session {
@@ -92,7 +93,9 @@ export default function DashboardPage() {
     { href: "/playground", icon: <Code2 size={16}/>,      label: "Code Playground" },
     { href: "/social",     icon: <Users size={16}/>,      label: "Social" },
     { href: "/companies",  icon: <Award size={16}/>,      label: "Companies" },
-    { href: "/history",    icon: <Clock size={16}/>,      label: "History" },
+    { href: "/history",     icon: <Clock size={16}/>,      label: "History" },
+    { href: "/leaderboard", icon: <Trophy size={16}/>,     label: "Leaderboard" },
+    { href: "/prep-plan",   icon: <Calendar size={16}/>,   label: "30-Day Plan" },
   ];
 
   const greeting = () => {
@@ -141,7 +144,10 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold mb-1">
               {greeting()}, {user?.full_name?.split(" ")[0] || "there"} 👋
             </h1>
+            <div className="flex items-center gap-3 mt-1">
             <p className="text-slate-400 text-sm">Ready to ace your next interview?</p>
+            <StreakTracker/>
+          </div>
           </div>
 
           {/* Stats */}

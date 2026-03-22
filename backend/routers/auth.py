@@ -338,7 +338,18 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
 
     # Store in Redis for 15 min
     try:
-        await redis_client.client.setex(f"pwd_reset:{token}", 900, email)
+        try:
+            if hasattr(redis_client, 'client') and redis_client.client:
+                await redis_client.client.setex(f"pwd_reset:{token}", 900, email)
+            elif hasattr(redis_client, 'redis') and redis_client.redis:
+                await redis_client.redis.setex(f"pwd_reset:{token}", 900, email)
+            else:
+                # Fallback: store in memory
+                import json
+                _reset_tokens[token] = email
+        except Exception as e:
+            print(f"[RESET] Redis error: {e}")
+            _reset_tokens[token] = email
         print(f"[RESET] Token stored for {email}")
     except Exception as e:
         print(f"[RESET] Redis error: {e}")
@@ -359,7 +370,12 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
 async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
     email = None
     try:
-        val = await redis_client.client.get(f"pwd_reset:{body.token}")
+        if hasattr(redis_client, 'client') and redis_client.client:
+            val = await redis_client.client.get(f"pwd_reset:{body.token}")
+        elif hasattr(redis_client, 'redis') and redis_client.redis:
+            val = await redis_client.redis.get(f"pwd_reset:{body.token}")
+        else:
+            val = _reset_tokens.get(body.token, "").encode() if body.token in _reset_tokens else None
         email = val.decode() if isinstance(val, bytes) else val
     except Exception as e:
         print(f"[RESET] Redis error: {e}")
@@ -376,7 +392,12 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
     await db.commit()
 
     try:
-        await redis_client.client.delete(f"pwd_reset:{body.token}")
+        try:
+            if hasattr(redis_client, 'client') and redis_client.client:
+                await redis_client.client.delete(f"pwd_reset:{body.token}")
+            _reset_tokens.pop(body.token, None)
+        except Exception:
+            pass
     except Exception:
         pass
 

@@ -125,11 +125,11 @@ export default function LoginPage() {
     try {
       const { data } = await api.post("/auth/forgot-password", { email: resetEmail });
       setResetToken(data.reset_token || "");
+      setResetToken(data.reset_token || "");
       if (data.email_sent) {
-        setSuccess("✅ Reset email sent! Check your inbox.");
-        setTimeout(() => setMode("reset"), 2000);
+        setSuccess("✅ Reset link sent to your email!");
+        setTimeout(() => setMode("reset"), 1500);
       } else {
-        setResetToken(data.reset_token || "");
         setMode("reset");
       }
     } catch (e: any) {
@@ -270,12 +270,7 @@ export default function LoginPage() {
             <>
               <p className="text-xs text-slate-400 mb-4">Enter the token from your email and your new password.</p>
               <form onSubmit={handleReset} className="space-y-4">
-                <div>
-                  <label className="block text-xs text-slate-500 mb-1.5">Reset token</label>
-                  <input value={resetToken} onChange={e=>setResetToken(e.target.value)}
-                    placeholder="Paste token here" autoComplete="off" name="reset-token"
-                    className="w-full bg-dark-900 border border-white/8 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none font-mono placeholder:text-slate-700"/>
-                </div>
+                {/* Token hidden — auto-filled */}
                 <div>
                   <label className="block text-xs text-slate-500 mb-1.5">New password</label>
                   <div className="relative">

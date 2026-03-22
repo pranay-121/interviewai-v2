@@ -125,11 +125,13 @@ export default function LoginPage() {
     try {
       const { data } = await api.post("/auth/forgot-password", { email: resetEmail });
       setResetToken(data.reset_token || "");
-      setSuccess(data.email_sent
-        ? "✅ Reset email sent! Check your inbox."
-        : `Token generated. Use it below:\n${data.reset_token}`
-      );
-      if (data.reset_token) setTimeout(() => setMode("reset"), 2000);
+      if (data.email_sent) {
+        setSuccess("✅ Reset email sent! Check your inbox.");
+        setTimeout(() => setMode("reset"), 2000);
+      } else {
+        setResetToken(data.reset_token || "");
+        setMode("reset");
+      }
     } catch (e: any) {
       setError(e.response?.data?.detail || "Email not found.");
     } finally { setLoading(false); }

@@ -87,30 +87,35 @@ def make_response(user: User, is_new: bool = False) -> dict:
 
 # ── Email sender ──────────────────────────────────────────────
 async def send_email(to_email: str, subject: str, html: str) -> bool:
-    smtp_email = os.getenv("SMTP_EMAIL", "")
-    smtp_password = os.getenv("SMTP_PASSWORD", "")
-    if not smtp_email or not smtp_password:
-        print(f"[EMAIL] SMTP not configured. Skipping email to {to_email}")
+    resend_key = os.getenv("RESEND_API_KEY", "")
+    if not resend_key:
+        print(f"[EMAIL] RESEND_API_KEY not set. Skipping email to {to_email}")
         return False
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"InterviewAI <{smtp_email}>"
-        msg["To"] = to_email
-        msg.attach(MIMEText(html, "html"))
-        await aiosmtplib.send(
-            msg,
-            hostname="smtp.gmail.com",
-            port=465,
-            use_tls=True,
-            username=smtp_email,
-            password=smtp_password,
-            timeout=30,
-        )
-        print(f"[EMAIL] ✅ Sent '{subject}' to {to_email}")
-        return True
+        import httpx as _httpx
+        async with _httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": "InterviewAI <onboarding@resend.dev>",
+                    "to": [to_email],
+                    "subject": subject,
+                    "html": html,
+                },
+                timeout=15,
+            )
+        if resp.status_code in (200, 201):
+            print(f"[EMAIL] ✅ Sent '{subject}' to {to_email}")
+            return True
+        else:
+            print(f"[EMAIL] ❌ Resend error {resp.status_code}: {resp.text}")
+            return False
     except Exception as e:
-        print(f"[EMAIL] ❌ Failed to send to {to_email}: {e}")
+        print(f"[EMAIL] ❌ Exception: {e}")
         return False
 
 # ── Welcome email ─────────────────────────────────────────────

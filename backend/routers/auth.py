@@ -247,7 +247,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         email=email,
         full_name=body.full_name,
         hashed_password=hash_password(body.password),
-        is_verified=True,
+
     )
     db.add(user)
     await db.commit()
@@ -309,7 +309,7 @@ async def google_auth(body: GoogleRequest, db: AsyncSession = Depends(get_db)):
             full_name=full_name,
             hashed_password=hash_password(secrets.token_hex(16)),
             avatar_url=avatar_url,
-            is_verified=True,
+    
         )
         db.add(user)
         await db.commit()

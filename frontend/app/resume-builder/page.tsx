@@ -89,71 +89,25 @@ export default function ResumeBuilderPage() {
   const parseResumeWithAI = async (text: string) => {
     const token = JSON.parse(localStorage.getItem("interviewai-auth") || "{}").state?.accessToken || "";
 
-    // Use Anthropic API directly for better JSON extraction
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const backendRes = await fetch("https://interviewai-backend-yaci.onrender.com/agents/parse-resume", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": "",  // handled by proxy
+        "Authorization": `Bearer ${token}`
       },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2000,
-        messages: [{
-          role: "user",
-          content: `Extract ALL information from this resume and return ONLY a valid JSON object. No explanation, no markdown, just raw JSON.
-
-Required JSON structure:
-{
-  "fullName": "string",
-  "email": "string",
-  "phone": "string",
-  "location": "string",
-  "linkedin": "string",
-  "github": "string",
-  "website": "string",
-  "summary": "string",
-  "targetRole": "string",
-  "experience": [{"company":"string","role":"string","location":"string","startDate":"string","endDate":"string","current":false,"bullets":["string"]}],
-  "education": [{"institution":"string","degree":"string","field":"string","startDate":"string","endDate":"string","grade":"string"}],
-  "skills": [{"category":"string","items":"string"}],
-  "projects": [{"name":"string","description":"string","tech":"string","link":"string"}],
-  "certifications": [{"name":"string","issuer":"string","date":"string"}]
-}
-
-Resume text:
-${text.slice(0, 4000)}`
-        }]
-      })
+      body: JSON.stringify({ text: text.slice(0, 3000) }),
     });
 
-    // If Anthropic fails, use our backend
-    let parsed = null;
-    if (res.ok) {
-      const data = await res.json();
-      const content = data.content?.[0]?.text || "";
-      const match = content.match(/\{[\s\S]*\}/);
-      if (match) {
-        try { parsed = JSON.parse(match[0]); } catch {}
-      }
+    if (!backendRes.ok) {
+      const err = await backendRes.json().catch(() => ({}));
+      throw new Error(err.detail || "Backend parse failed. Please try again.");
     }
 
-    // Fallback: use our Groq backend
-    if (!parsed) {
-      const backendRes = await fetch("https://interviewai-backend-yaci.onrender.com/agents/parse-resume", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ text: text.slice(0, 3000) }),
-      });
-
-      if (backendRes.ok) {
-        const backendData = await backendRes.json();
-        parsed = backendData.parsed || null;
-      }
+    const backendData = await backendRes.json();
+    if (!backendData.parsed) {
+      throw new Error("Could not extract resume data. Please fill the form manually.");
     }
-
-    if (!parsed) throw new Error("Could not extract resume data. Please fill the form manually.");
-    return parsed;
+    return backendData.parsed;
   };
 
   // ── Handle file upload ─────────────────────────────────────────────────

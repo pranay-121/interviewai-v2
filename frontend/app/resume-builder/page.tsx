@@ -120,10 +120,27 @@ Return ONLY the JSON object, no explanation.`
       }),
     });
     const data = await res.json();
-    const raw = typeof data.question === "string" ? data.question : JSON.stringify(data.question);
+    // Handle different response shapes
+    let raw = "";
+    if (typeof data.question === "string") raw = data.question;
+    else if (typeof data.question === "object" && data.question?.problem) raw = data.question.problem;
+    else if (typeof data === "string") raw = data;
+    else raw = JSON.stringify(data);
+
+    if (!raw) throw new Error("Empty response from AI");
+
+    // Try to find JSON in response
     const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("Could not parse resume");
-    return JSON.parse(match[0]);
+    if (!match) {
+      // Return empty structure if no JSON found
+      console.log("AI raw response:", raw.slice(0, 200));
+      throw new Error("AI could not parse resume. Please try a TXT file instead.");
+    }
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      throw new Error("Could not read resume. Please try a TXT file instead.");
+    }
   };
 
   // ── Handle file upload ─────────────────────────────────────────────────

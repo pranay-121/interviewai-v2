@@ -69,3 +69,53 @@ async def analyze_resume(
         return {"analysis": analysis}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI analysis error: {str(e)}")
+
+class ParseResumeRequest(BaseModel):
+    text: str
+
+@router.post("/parse-resume")
+async def parse_resume_text(
+    body: ParseResumeRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    try:
+        prompt = f"""Extract ALL information from this resume text and return ONLY a valid JSON object. No explanation, no markdown, ONLY raw JSON.
+
+JSON structure required:
+{{
+  "fullName": "",
+  "email": "",
+  "phone": "",
+  "location": "",
+  "linkedin": "",
+  "github": "",
+  "website": "",
+  "summary": "",
+  "targetRole": "",
+  "experience": [{{"company":"","role":"","location":"","startDate":"","endDate":"","current":false,"bullets":[""]}}],
+  "education": [{{"institution":"","degree":"","field":"","startDate":"","endDate":"","grade":""}}],
+  "skills": [{{"category":"Programming Languages","items":""}},{{"category":"Frameworks","items":""}},{{"category":"Tools","items":""}}],
+  "projects": [{{"name":"","description":"","tech":"","link":""}}],
+  "certifications": [{{"name":"","issuer":"","date":""}}]
+}}
+
+Resume text:
+{body.text[:3000]}
+
+Return ONLY the JSON object."""
+
+        from agents.base_agent import BaseInterviewAgent
+        agent = BaseInterviewAgent()
+        raw = await agent._invoke(prompt)
+
+        # Extract JSON from response
+        import re, json
+        raw = re.sub(r'```json\s*', '', raw)
+        raw = re.sub(r'```\s*', '', raw).strip()
+        match = re.search(r'\{[\s\S]*\}', raw)
+        if match:
+            parsed = json.loads(match.group())
+            return {"parsed": parsed, "success": True}
+        return {"parsed": None, "success": False, "raw": raw[:200]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Parse error: {str(e)}")

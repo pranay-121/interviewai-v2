@@ -112,9 +112,28 @@ Return ONLY the JSON object."""
         import re, json
         raw = re.sub(r'```json\s*', '', raw)
         raw = re.sub(r'```\s*', '', raw).strip()
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if match:
-            parsed = json.loads(match.group())
+
+        # Find the FIRST complete JSON object only
+        parsed = None
+        brace_count = 0
+        start = -1
+        for i, ch in enumerate(raw):
+            if ch == '{':
+                if start == -1:
+                    start = i
+                brace_count += 1
+            elif ch == '}':
+                brace_count -= 1
+                if brace_count == 0 and start != -1:
+                    json_str = raw[start:i+1]
+                    try:
+                        parsed = json.loads(json_str)
+                        break
+                    except json.JSONDecodeError:
+                        start = -1
+                        brace_count = 0
+
+        if parsed:
             return {"parsed": parsed, "success": True}
         return {"parsed": None, "success": False, "raw": raw[:200]}
     except Exception as e:

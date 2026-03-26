@@ -87,7 +87,22 @@ export default function ResumeBuilderPage() {
 
   // ── Parse resume text with AI ──────────────────────────────────────────
   const parseResumeWithAI = async (text: string) => {
-    const token = JSON.parse(localStorage.getItem("interviewai-auth") || "{}").state?.accessToken || "";
+    // Get token from multiple possible storage locations
+    let token = "";
+    try {
+      const stored = localStorage.getItem("interviewai-auth");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        token = parsed?.state?.accessToken || parsed?.accessToken || "";
+      }
+    } catch {}
+
+    console.log("[Resume] Token found:", !!token);
+    console.log("[Resume] Text length:", text.length);
+
+    if (!token) {
+      throw new Error("Please login first before importing your resume.");
+    }
 
     const backendRes = await fetch("https://interviewai-backend-yaci.onrender.com/agents/parse-resume", {
       method: "POST",
@@ -98,12 +113,17 @@ export default function ResumeBuilderPage() {
       body: JSON.stringify({ text: text.slice(0, 3000) }),
     });
 
+    console.log("[Resume] Backend response status:", backendRes.status);
+
     if (!backendRes.ok) {
       const err = await backendRes.json().catch(() => ({}));
-      throw new Error(err.detail || "Backend parse failed. Please try again.");
+      console.log("[Resume] Backend error:", err);
+      throw new Error(err.detail || `Server error ${backendRes.status}. Please try again.`);
     }
 
     const backendData = await backendRes.json();
+    console.log("[Resume] Parsed success:", backendData.success);
+
     if (!backendData.parsed) {
       throw new Error("Could not extract resume data. Please fill the form manually.");
     }

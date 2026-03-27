@@ -87,52 +87,28 @@ export default function ResumeBuilderPage() {
 
   // ── Parse resume text with AI ──────────────────────────────────────────
   const parseResumeWithAI = async (text: string) => {
-    // Get token from Zustand persisted store
+    // Get token from Zustand persist store (key: interviewai-auth)
     let token = "";
     try {
       const stored = localStorage.getItem("interviewai-auth");
       if (stored) {
         const obj = JSON.parse(stored);
-        // Try all possible locations
-        token = obj?.state?.accessToken
-          || obj?.accessToken
-          || obj?.state?.access_token
-          || obj?.access_token
-          || "";
+        token = obj?.state?.accessToken || "";
+        console.log("[Resume] Auth object keys:", Object.keys(obj || {}));
+        console.log("[Resume] State keys:", Object.keys(obj?.state || {}));
+        console.log("[Resume] Token found:", !!token, token?.slice(0,20));
+      } else {
+        console.log("[Resume] No interviewai-auth in localStorage");
       }
-    } catch {}
-
-    // Also try sessionStorage
-    if (!token) {
-      try {
-        const session = sessionStorage.getItem("interviewai-auth");
-        if (session) {
-          const obj = JSON.parse(session);
-          token = obj?.state?.accessToken || obj?.accessToken || "";
-        }
-      } catch {}
+    } catch(e) {
+      console.log("[Resume] Token parse error:", e);
     }
 
     console.log("[Resume] Token found:", !!token);
     console.log("[Resume] Text length:", text.length);
 
     if (!token) {
-      // Last resort: check all localStorage keys
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.includes("auth") || key.includes("token"))) {
-            const val = localStorage.getItem(key) || "";
-            const obj = JSON.parse(val);
-            token = obj?.state?.accessToken || obj?.accessToken || obj?.token || "";
-            if (token) break;
-          }
-        }
-      } catch {}
-    }
-
-    if (!token) {
-      throw new Error("Session expired. Please logout and login again.");
+      throw new Error("Session expired. Please logout and login again, then try importing.");
     }
 
     const backendRes = await fetch("https://interviewai-backend-yaci.onrender.com/agents/parse-resume", {
@@ -172,27 +148,55 @@ export default function ResumeBuilderPage() {
     setImportError("");
     try {
       let text = "";
+      const authToken = JSON.parse(localStorage.getItem("interviewai-auth") || "{}").state?.accessToken || "";
+
       if (file.name.endsWith(".txt")) {
         text = await file.text();
+        console.log("[Resume] TXT text length:", text.length);
       } else {
-        // Extract text from PDF using backend
-        const formData = new FormData();
-        formData.append("file", file);
-        const token = JSON.parse(localStorage.getItem("interviewai-auth") || "{}").state?.accessToken || "";
-        const res = await fetch("https://interviewai-backend-yaci.onrender.com/agents/extract-resume-text", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` },
-          body: formData,
-        });
-        if (res.ok) {
-          const data = await res.json();
-          text = data.text || "";
-        } else {
-          // Fallback: read as text
-          text = await file.text();
+        // Try backend PDF extraction first
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          const res = await fetch("https://interviewai-backend-yaci.onrender.com/agents/extract-resume-text", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${authToken}` },
+            body: formData,
+          });
+          if (res.ok) {
+            const data = await res.json();
+            text = data.text || "";
+            console.log("[Resume] Backend PDF extraction:", text.length, "chars");
+          }
+        } catch(e) {
+          console.log("[Resume] Backend PDF extraction failed:", e);
+        }
+
+        // Fallback: use pdfjs in browser
+        if (!text.trim()) {
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdfjsLib = await import("pdfjs-dist");
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const pages = [];
+            for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const content = await page.getTextContent();
+              pages.push(content.items.map((item: any) => item.str).join(" "));
+            }
+            text = pages.join("
+");
+            console.log("[Resume] PDF.js extraction:", text.length, "chars");
+          } catch(e) {
+            console.log("[Resume] PDF.js failed:", e);
+            // Last resort: raw text
+            text = await file.text().catch(() => "");
+          }
         }
       }
-      if (!text.trim()) throw new Error("Could not extract text from file.");
+      if (!text.trim()) throw new Error("Could not extract text from PDF. Please try a TXT file.");
+      console.log("[Resume] Final text:", text.slice(0, 100));
 
       // Parse with AI
       const parsed = await parseResumeWithAI(text);

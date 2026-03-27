@@ -87,21 +87,52 @@ export default function ResumeBuilderPage() {
 
   // ── Parse resume text with AI ──────────────────────────────────────────
   const parseResumeWithAI = async (text: string) => {
-    // Get token from multiple possible storage locations
+    // Get token from Zustand persisted store
     let token = "";
     try {
       const stored = localStorage.getItem("interviewai-auth");
       if (stored) {
-        const parsed = JSON.parse(stored);
-        token = parsed?.state?.accessToken || parsed?.accessToken || "";
+        const obj = JSON.parse(stored);
+        // Try all possible locations
+        token = obj?.state?.accessToken
+          || obj?.accessToken
+          || obj?.state?.access_token
+          || obj?.access_token
+          || "";
       }
     } catch {}
+
+    // Also try sessionStorage
+    if (!token) {
+      try {
+        const session = sessionStorage.getItem("interviewai-auth");
+        if (session) {
+          const obj = JSON.parse(session);
+          token = obj?.state?.accessToken || obj?.accessToken || "";
+        }
+      } catch {}
+    }
 
     console.log("[Resume] Token found:", !!token);
     console.log("[Resume] Text length:", text.length);
 
     if (!token) {
-      throw new Error("Please login first before importing your resume.");
+      // Last resort: check all localStorage keys
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes("auth") || key.includes("token"))) {
+            const val = localStorage.getItem(key) || "";
+            const obj = JSON.parse(val);
+            token = obj?.state?.accessToken || obj?.accessToken || obj?.token || "";
+            if (token) break;
+          }
+        }
+      } catch {}
+    }
+
+    if (!token) {
+      throw new Error("Session expired. Please logout and login again.");
     }
 
     const backendRes = await fetch("https://interviewai-backend-yaci.onrender.com/agents/parse-resume", {

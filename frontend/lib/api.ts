@@ -19,30 +19,12 @@ if (typeof window !== "undefined") {
   } catch {}
 }
 
-// Auto-refresh on 401
+// Response interceptor - NO auto redirect
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
-    const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
-      original._retry = true;
-      try {
-        const stored = localStorage.getItem("interviewai-auth");
-        if (stored) {
-          const { state } = JSON.parse(stored);
-          if (state?.refreshToken && state?.user?.id) {
-            const { data } = await axios.post(
-              `${api.defaults.baseURL}/auth/refresh`,
-              { user_id: state.user.id, refresh_token: state.refreshToken }
-            );
-            api.defaults.headers.common["Authorization"] = `Bearer ${data.access_token}`;
-            original.headers["Authorization"] = `Bearer ${data.access_token}`;
-            return api(original);
-          }
-        }
-      } catch {}
-      if (typeof window !== "undefined") window.location.href = "/login";
-    }
+    // Just reject — do NOT redirect automatically
+    // Let each page handle 401 errors individually
     return Promise.reject(error);
   }
 );

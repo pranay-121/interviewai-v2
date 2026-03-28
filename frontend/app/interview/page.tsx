@@ -157,8 +157,7 @@ function InterviewApp() {
       }
     };
     reattach();
-    const iv = setInterval(reattach, 400);
-    return () => clearInterval(iv);
+    // Camera reattach removed - was causing refresh loop
   }); // No deps — runs every render to prevent camera loss
 
   // Cleanup on unmount only

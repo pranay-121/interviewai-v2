@@ -185,8 +185,7 @@ export default function ResumeBuilderPage() {
               const content = await page.getTextContent();
               pages.push(content.items.map((item: any) => item.str).join(" "));
             }
-            text = pages.join("
-");
+            text = pages.join("\n");
             console.log("[Resume] PDF.js extraction:", text.length, "chars");
           } catch(e) {
             console.log("[Resume] PDF.js failed:", e);
